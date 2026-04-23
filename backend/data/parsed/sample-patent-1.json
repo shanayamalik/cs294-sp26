@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "id": "sample-patent-1",
+    "title": "Adaptive Sensor Processing System",
+    "sourceFile": "sample_patent_1.txt",
+    "ingestedAt": "2026-04-23T00:00:00.000Z"
+  },
+  "sections": [
+    {
+      "type": "ABSTRACT",
+      "title": "ABSTRACT",
+      "passages": [
+        {
+          "id": "ABSTRACT-0-0",
+          "text": "A system for processing sensor signals in changing environments is disclosed. The system calibrates incoming signals and updates model parameters over time.",
+          "index": 0,
+          "sectionType": "ABSTRACT",
+          "startOffset": 0,
+          "endOffset": 146
+        }
+      ]
+    },
+    {
+      "type": "SPECIFICATION",
+      "title": "BACKGROUND",
+      "passages": [
+        {
+          "id": "SPECIFICATION-1-0",
+          "text": "Conventional systems struggle with sensor drift and noise. Manual review of long technical documents is often required.",
+          "index": 0,
+          "sectionType": "SPECIFICATION",
+          "startOffset": 0,
+          "endOffset": 112
+        }
+      ]
+    },
+    {
+      "type": "SPECIFICATION",
+      "title": "DETAILED DESCRIPTION",
+      "passages": [
+        {
+          "id": "SPECIFICATION-2-0",
+          "text": "In one embodiment, the signal processing module receives raw measurements from multiple channels.",
+          "index": 0,
+          "sectionType": "SPECIFICATION",
+          "startOffset": 0,
+          "endOffset": 91
+        },
+        {
+          "id": "SPECIFICATION-2-1",
+          "text": "A calibration submodule computes adjustment factors based on historical signal behavior and threshold events.",
+          "index": 1,
+          "sectionType": "SPECIFICATION",
+          "startOffset": 93,
+          "endOffset": 199
+        },
+        {
+          "id": "SPECIFICATION-2-2",
+          "text": "The processor applies the adjustment factors before downstream inference.",
+          "index": 2,
+          "sectionType": "SPECIFICATION",
+          "startOffset": 201,
+          "endOffset": 271
+        }
+      ]
+    },
+    {
+      "type": "CLAIMS",
+      "title": "CLAIMS",
+      "passages": [
+        {
+          "id": "CLAIMS-3-0",
+          "text": "1. A system comprising a processor configured to perform adaptive signal calibration.",
+          "index": 0,
+          "sectionType": "CLAIMS",
+          "startOffset": 0,
+          "endOffset": 80
+        },
+        {
+          "id": "CLAIMS-3-1",
+          "text": "2. The system of claim 1, wherein the processor updates calibration parameters in response to drift.",
+          "index": 1,
+          "sectionType": "CLAIMS",
+          "startOffset": 82,
+          "endOffset": 180
+        }
+      ]
+    }
+  ]
+}

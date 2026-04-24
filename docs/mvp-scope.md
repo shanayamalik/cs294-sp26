@@ -1,6 +1,6 @@
 # MVP Scope
 
-## In Scope
+## Presentation goals?
 
 - Constrained raw patent input formats (`.txt` and text-extractable `.pdf`)
 - Fixed hierarchy: `Document -> Section -> Passage`
@@ -21,12 +21,10 @@
   - neighboring context
   - match reasons
 
-## Out of Scope
+## Some final paper feature goals
 
 - Embedding-based retrieval
 - Semantic ranking models
-- Claim dependency graphs
 - Cross-document joins
-- Full patent-format generality
 - Rich query grammar (parentheses, precedence, nested expressions, OR/NOT)
-- Paragraph-anchor-only workflows as the primary retrieval strategy
+- USPTO search integration

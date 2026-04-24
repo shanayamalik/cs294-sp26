@@ -1,0 +1,19 @@
+{
+  "name": "patent-query-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Structured patent document query prototype",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "cd backend && python3 -m uvicorn app.main:app --reload --port 4000",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "test:backend": "cd backend && python3 -m pytest",
+    "parse:raw": "cd backend && python3 -m scripts.parse_raw_to_json"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

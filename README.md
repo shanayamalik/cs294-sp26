@@ -1,6 +1,6 @@
 # CS 294-184 Final Project Part 2: Programmatic Document Analysis for Patent Examination
 
-We design a programming-oriented document analysis environment where patent documents are treated as structured, queryable data. Instead of manual keyword search and scanning, examiners define reusable queries over document structure (sections, passages, metadata) to systematically retrieve and analyze relevant evidence.
+We design a programming-oriented document analysis environment where patent documents are treated as structured, queryable data. Instead of manual keyword search and scanning, examiners define reusable document-level queries over structure (sections, passages, metadata) to systematically retrieve and analyze relevant evidence.
 
 ## Repository Layout
 
@@ -14,11 +14,14 @@ We design a programming-oriented document analysis environment where patent docu
 - Parser for constrained raw patent inputs (`.txt` and text-extractable `.pdf`)
 - Internal query model with filters:
   - `section == TYPE`
+  - `meta.KEY == VALUE` (optional)
+  - `cpc == CODE` (optional)
   - `contains("phrase")`
+  - `paragraph == NNNN` (optional drill-down)
   - `AND`
 - Lightweight textual DSL:
-  - `section:SPECIFICATION AND contains:"signal processing"`
-- Query execution with provenance metadata
+  - `section:SUMMARY AND contains:"normalizer task queue"`
+- Query execution with provenance metadata, grouped by matched document
 - Thin UI to run queries and inspect passage context
 
 ## Quick Start
@@ -67,7 +70,7 @@ npm run dev:frontend
 ## Example Query DSL
 
 ```text
-section:SPECIFICATION AND contains:"signal processing"
+section:SUMMARY AND contains:"normalizer task queue"
 ```
 
 ## Current Goals

@@ -1,0 +1,130 @@
+:root {
+  --bg: #f6f4ee;
+  --panel: #fffaf0;
+  --ink: #20211f;
+  --muted: #5f635c;
+  --accent: #0f7b6c;
+  --accent-2: #e5a23d;
+  --error: #9f2a2a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 85% 10%, #ffe6bc 0%, rgba(255, 230, 188, 0) 38%),
+    radial-gradient(circle at 10% 95%, #cfece6 0%, rgba(207, 236, 230, 0) 44%),
+    var(--bg);
+}
+
+.page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid #e7ddc9;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+}
+
+h1,
+h2 {
+  font-family: "IBM Plex Serif", "Georgia", serif;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin: 0.4rem 0 1rem;
+}
+
+.queryForm {
+  display: grid;
+  gap: 0.8rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+select,
+textarea,
+button {
+  font: inherit;
+  border-radius: 10px;
+  border: 1px solid #d8ceb9;
+  padding: 0.6rem 0.7rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  background: linear-gradient(120deg, var(--accent), #137f8c);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.docMeta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  margin-top: 0.8rem;
+  color: var(--error);
+  font-weight: 600;
+}
+
+.results {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.resultCard {
+  border: 1px solid #ddd1ba;
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fffcf6;
+}
+
+.resultCard header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.resultCard strong {
+  color: var(--accent);
+}
+
+.contextBlock {
+  margin-top: 0.6rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  background: #f6f1e4;
+}

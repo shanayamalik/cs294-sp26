@@ -1,41 +1,55 @@
 # MVP Scope
 
-## Current State
+## Current State (Updated Post Demo)
 
-- Constrained raw patent input formats (`.txt` and text-extractable `.pdf`)
+- Constrained raw patent input formats (`.txt` and text-extractable `.pdf`), including USPTO-style patent PDFs
 - Fixed hierarchy: `Document -> Section -> Passage`
-- Minimal metadata: `id`, `title`, `sourceFile`, `ingestedAt`
-- Basic passage splitting by blank-line paragraphs, with passage ids and offsets
+- Document-level metadata extraction:
+  - core metadata: `id`, `title`, `sourceFile`, `ingestedAt`
+  - patent metadata: `documentId`, dates, `applicationNo`, inventors, assignee, CPC, domestic priority, US class
+- Passage splitting by:
+  - blank-line paragraphs
+  - patent numbered paragraphs
+  - claims
+- Passage annotations:
+  - passage ids and offsets
+  - optional anchors (`paragraphId`, `claimNo`) when available
+  - optional `figureRefs`
 - Query filters:
   - `section:TYPE`
   - `contains:"phrase"`
+  - `meta.KEY:"value"`
+  - nested metadata paths such as `meta.assignee.name:"value"`
+  - `cpc:"code"`
+- Query boolean logic:
   - `AND`
+  - `OR`
+  - `NOT`
+  - parentheses, precedence, nested expressions
 - Result output with:
-  - matches grouped by document
+  - matches across one or more selected documents
+  - document id on each match
   - matched passage text
   - section metadata
   - optional anchors (`paragraphId`, `claimNo`) when available
   - neighboring context
   - match reasons
+- Frontend document picker supports searching across multiple documents
+- Frontend result cards show which document each hit came from
+- Demo corpus includes parsed sample patent data and multiple USPTO patent PDFs
+- Supported demo queries are captured in [example-queries.md](example-queries.md)
 
 ## Goal Features
 
-- Document-level metadata extraction (`doc_id`, dates, application number, inventors, CPC)
-- Passage splitting with optional anchor extraction (`paragraphId`, `claimNo`)
 - More Query filters:
-  - `meta.KEY:"value"`
-  - `cpc:"code"`
   - `paragraph:NNNN` (optional pinpoint filter, not primary retrieval)
-  - `OR`
-  - `NOT`
-  - parentheses, precedence, nested expressions 
-- Result output with optional anchors (`paragraphId`, `claimNo`) when available
+- More *Unique* Query filters specific to examiner workflows that we can extract from need finding
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
   - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 
   as well as avoid needlessly loading unnecessary documents to prevent wasted time querying them
 - USPTO search integration
-  - Chrome extension?
-- Unique Query filters
+  - Chrome/Browser extension?
+  - API integration with [USPTO API](https://data.uspto.gov/apis/getting-started)
 
 
 ### Additional Thoughts
@@ -61,7 +75,7 @@
 
 
 
-## Demo Goals
+## Demo Goals (Done)
 
 ### Frontend
 

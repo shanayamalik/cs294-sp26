@@ -65,7 +65,7 @@ select,
 textarea,
 button {
   font: inherit;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #d8ceb9;
   padding: 0.6rem 0.7rem;
 }
@@ -87,6 +87,62 @@ button:disabled {
   opacity: 0.7;
 }
 
+.secondaryButton {
+  background: #ffffff;
+  border: 1px solid #cfc3ad;
+  color: var(--ink);
+  padding: 0.45rem 0.65rem;
+}
+
+.documentPicker {
+  border: 1px solid #d8ceb9;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.documentPicker legend {
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+
+.documentPickerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.documentOptions {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.documentOption {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.55rem;
+  font-weight: 400;
+}
+
+.documentOption input {
+  margin-top: 0.25rem;
+}
+
+.documentOption span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.documentOption code,
+.documentLabel code {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .docMeta {
   color: var(--muted);
   font-size: 0.9rem;
@@ -105,7 +161,7 @@ button:disabled {
 
 .resultCard {
   border: 1px solid #ddd1ba;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 0.8rem;
   background: #fffcf6;
 }
@@ -120,6 +176,33 @@ button:disabled {
 
 .resultCard strong {
   color: var(--accent);
+}
+
+.passagePreview {
+  display: -webkit-box;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin: 0.65rem 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.queryHighlight {
+  background: #ffe08a;
+  border-radius: 3px;
+  color: inherit;
+  padding: 0 0.12rem;
+}
+
+.documentLabel {
+  align-items: baseline;
+  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: 700;
+  gap: 0.4rem;
+  width: 100%;
 }
 
 .contextBlock {

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 type DocumentSummary = {
   id: string;
@@ -12,6 +12,7 @@ type QueryResponse = {
     totalMatches: number;
     matches: Array<{
       passageId: string;
+      documentId: string;
       sectionType: string;
       sectionTitle: string;
       passageIndex: number;
@@ -24,23 +25,32 @@ type QueryResponse = {
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
+const PASSAGE_PREVIEW_LIMIT = 420;
 
 export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
+  const [submittedQueryText, setSubmittedQueryText] = useState("");
 
   useEffect(() => {
     void loadDocuments();
   }, []);
 
-  const selectedDoc = useMemo(
-    () => documents.find((doc) => doc.id === selectedDocumentId) ?? null,
-    [documents, selectedDocumentId]
+  const documentsById = useMemo(
+    () => new Map(documents.map((doc) => [doc.id, doc])),
+    [documents]
   );
+
+  const selectedDocuments = useMemo(
+    () => selectedDocumentIds.map((id) => documentsById.get(id)).filter((doc): doc is DocumentSummary => Boolean(doc)),
+    [documentsById, selectedDocumentIds]
+  );
+
+  const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
 
   async function loadDocuments() {
     try {
@@ -50,17 +60,35 @@ export default function App() {
       setDocuments(data.documents);
 
       if (data.documents.length > 0) {
-        setSelectedDocumentId((current) => current || data.documents[0].id);
+        setSelectedDocumentIds((current) =>
+          current.length > 0 ? current.filter((id) => data.documents.some((doc) => doc.id === id)) : data.documents.map((doc) => doc.id)
+        );
       }
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
+  function toggleDocument(documentId: string) {
+    setSelectedDocumentIds((current) =>
+      current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId]
+    );
+  }
+
+  function previewPassage(text: string) {
+    if (text.length <= PASSAGE_PREVIEW_LIMIT) {
+      return text;
+    }
+
+    const truncated = text.slice(0, PASSAGE_PREVIEW_LIMIT);
+    const lastSpace = truncated.lastIndexOf(" ");
+    return `${truncated.slice(0, lastSpace > 280 ? lastSpace : PASSAGE_PREVIEW_LIMIT).trim()}...`;
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!selectedDocumentId) {
-      setError("Select a document first.");
+    if (selectedDocumentIds.length === 0) {
+      setError("Select at least one document first.");
       return;
     }
 
@@ -72,7 +100,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          documentId: selectedDocumentId,
+          documentIds: selectedDocumentIds,
           queryText
         })
       });
@@ -83,8 +111,10 @@ export default function App() {
       }
 
       setQueryResult(payload as QueryResponse);
+      setSubmittedQueryText(queryText);
     } catch (err) {
       setQueryResult(null);
+      setSubmittedQueryText("");
       setError((err as Error).message);
     } finally {
       setLoading(false);
@@ -98,19 +128,32 @@ export default function App() {
         <p className="subtitle">Document → Section → Passage querying with a minimal DSL.</p>
 
         <form onSubmit={onSubmit} className="queryForm">
-          <label>
-            Document
-            <select
-              value={selectedDocumentId}
-              onChange={(event) => setSelectedDocumentId(event.target.value)}
-            >
+          <fieldset className="documentPicker">
+            <legend>Documents</legend>
+            <div className="documentPickerActions">
+              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds(documents.map((doc) => doc.id))}>
+                Select all
+              </button>
+              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds([])}>
+                Clear
+              </button>
+            </div>
+            <div className="documentOptions">
               {documents.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.title} ({doc.id})
-                </option>
+                <label key={doc.id} className="documentOption">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocumentIds.includes(doc.id)}
+                    onChange={() => toggleDocument(doc.id)}
+                  />
+                  <span>
+                    <strong>{doc.title}</strong>
+                    <code>{doc.id}</code>
+                  </span>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
 
           <label>
             Query DSL
@@ -122,14 +165,15 @@ export default function App() {
             />
           </label>
 
-          <button type="submit" disabled={loading || !selectedDocumentId}>
+          <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
             {loading ? "Running..." : "Run Query"}
           </button>
         </form>
 
-        {selectedDoc ? (
+        {selectedDocuments.length > 0 ? (
           <p className="docMeta">
-            Source: <code>{selectedDoc.sourceFile}</code> · Loaded: {new Date(selectedDoc.ingestedAt).toLocaleString()}
+            Searching {selectedDocuments.length} of {documents.length} document(s):{" "}
+            {selectedDocuments.map((doc) => doc.id).join(", ")}
           </p>
         ) : null}
 
@@ -143,34 +187,151 @@ export default function App() {
         </p>
 
         <div className="results">
-          {queryResult?.result.matches.map((match) => (
-            <article key={match.passageId} className="resultCard">
-              <header>
-                <strong>{match.sectionType}</strong>
-                <span>{match.sectionTitle}</span>
-                <span>Passage {match.passageIndex}</span>
-              </header>
+          {queryResult?.result.matches.map((match) => {
+            const documentTitle = documentsById.get(match.documentId)?.title ?? match.documentId;
 
-              <p>{match.passageText}</p>
+            return (
+              <article key={`${match.documentId}:${match.passageId}`} className="resultCard">
+                <header>
+                  <span className="documentLabel">
+                    {highlightText(documentTitle, highlightTerms)}
+                    <code>{highlightText(match.documentId, highlightTerms)}</code>
+                  </span>
+                  <strong>{match.sectionType}</strong>
+                  <span>{highlightText(match.sectionTitle, highlightTerms)}</span>
+                  <span>Passage {match.passageIndex}</span>
+                </header>
 
-              <details>
-                <summary>Context + match reasons</summary>
-                <div className="contextBlock">
-                  <p>
-                    <b>Before:</b> {match.contextBefore ?? "(none)"}
-                  </p>
-                  <p>
-                    <b>After:</b> {match.contextAfter ?? "(none)"}
-                  </p>
-                  <p>
-                    <b>Reasons:</b> {match.reasons.join("; ")}
-                  </p>
-                </div>
-              </details>
-            </article>
-          ))}
+                <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
+
+                <details>
+                  <summary>Full passage + context</summary>
+                  <div className="contextBlock">
+                    <p>
+                      <b>Matched passage:</b> {highlightText(match.passageText, highlightTerms)}
+                    </p>
+                    <p>
+                      <b>Before:</b> {match.contextBefore ? highlightText(match.contextBefore, highlightTerms) : "(none)"}
+                    </p>
+                    <p>
+                      <b>After:</b> {match.contextAfter ? highlightText(match.contextAfter, highlightTerms) : "(none)"}
+                    </p>
+                    <p>
+                      <b>Reasons:</b> {highlightText(match.reasons.join("; "), highlightTerms)}
+                    </p>
+                  </div>
+                </details>
+              </article>
+            );
+          })}
         </div>
       </section>
     </main>
   );
+}
+
+function extractHighlightTerms(queryText: string) {
+  const terms: string[] = [];
+
+  for (const clause of splitQueryClauses(queryText)) {
+    const containsMatch = clause.match(/^contains\s*:\s*(?:"([^"]+)"|(.+))$/i);
+    if (containsMatch) {
+      terms.push((containsMatch[1] ?? containsMatch[2] ?? "").trim());
+      continue;
+    }
+
+    const metadataMatch = clause.match(/^(?:meta|metadata)\.[A-Za-z0-9_.-]+\s*:\s*(?:"([^"]+)"|(.+))$/i);
+    if (metadataMatch) {
+      terms.push((metadataMatch[1] ?? metadataMatch[2] ?? "").trim());
+      continue;
+    }
+
+    const elementMatch = clause.match(/^(?:cpc|paragraph|claim|figure)\s*:\s*(?:"([^"]+)"|(.+))$/i);
+    if (elementMatch) {
+      terms.push((elementMatch[1] ?? elementMatch[2] ?? "").trim());
+    }
+  }
+
+  return [...new Map(terms.filter(Boolean).map((term) => [term.toLowerCase(), term])).values()].sort(
+    (left, right) => right.length - left.length
+  );
+}
+
+function splitQueryClauses(queryText: string) {
+  return splitBooleanClauses(queryText, "OR")
+    .flatMap((group) => splitBooleanClauses(group, "AND"))
+    .map((clause) => stripNotOperators(clause))
+    .filter(Boolean);
+}
+
+function splitBooleanClauses(queryText: string, operator: "AND" | "OR") {
+  const clauses: string[] = [];
+  let inQuotes = false;
+  let current = "";
+
+  for (let index = 0; index < queryText.length; index += 1) {
+    const character = queryText[index];
+
+    if (character === '"') {
+      inQuotes = !inQuotes;
+      current += character;
+      continue;
+    }
+
+    if (!inQuotes && operatorAt(queryText, index, operator)) {
+      const clause = current.trim();
+      if (clause) clauses.push(clause);
+      current = "";
+      index += operator.length - 1;
+      continue;
+    }
+
+    current += character;
+  }
+
+  const clause = current.trim();
+  if (clause) clauses.push(clause);
+  return clauses;
+}
+
+function operatorAt(queryText: string, index: number, operator: "AND" | "OR") {
+  const end = index + operator.length;
+  if (queryText.slice(index, end).toUpperCase() !== operator) {
+    return false;
+  }
+
+  const before = index > 0 ? queryText[index - 1] : " ";
+  const after = end < queryText.length ? queryText[end] : " ";
+  return /\s/.test(before) && /\s/.test(after);
+}
+
+function stripNotOperators(clause: string) {
+  let nextClause = clause.trim();
+
+  while (/^NOT\s+/i.test(nextClause)) {
+    nextClause = nextClause.replace(/^NOT\s+/i, "").trim();
+  }
+
+  return nextClause.replace(/^\(+\s*/, "").replace(/\s*\)+$/, "").trim();
+}
+
+function highlightText(text: string, terms: string[]): ReactNode {
+  if (terms.length === 0) {
+    return text;
+  }
+
+  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
+  return text.split(pattern).map((part, index) =>
+    terms.some((term) => term.toLowerCase() === part.toLowerCase()) ? (
+      <mark key={`${part}-${index}`} className="queryHighlight">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

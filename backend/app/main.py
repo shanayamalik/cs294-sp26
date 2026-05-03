@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .dsl_parser import parse_dsl
 from .models import ParseDocumentRequest, QueryRequest
 from .parser import parse_patent_text
-from .query_engine import execute_query
+from .query_engine import execute_query_across_documents
 from .source_loader import load_source_text
 from .store import DocumentStore
 
@@ -65,16 +65,30 @@ def parse_document(payload: ParseDocumentRequest) -> dict[str, str]:
 
 @app.post("/query")
 def run_query(payload: QueryRequest):
-    document = store.get(payload.documentId)
-    if document is None:
-        raise HTTPException(status_code=404, detail=f"Document not found: {payload.documentId}")
+    documents = []
+    missing_document_ids = []
+    seen_document_ids = set()
+
+    for document_id in payload.documentIds:
+        if document_id in seen_document_ids:
+            continue
+
+        seen_document_ids.add(document_id)
+        document = store.get(document_id)
+        if document is None:
+            missing_document_ids.append(document_id)
+        else:
+            documents.append(document)
+
+    if missing_document_ids:
+        raise HTTPException(status_code=404, detail=f"Document not found: {', '.join(missing_document_ids)}")
 
     try:
         query = parse_dsl(payload.queryText)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    result = execute_query(document, query)
+    result = execute_query_across_documents(documents, query)
     return {"query": query.model_dump(), "result": result.model_dump()}
 
 

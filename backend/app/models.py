@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 SectionType = Literal["TITLE", "ABSTRACT", "SPECIFICATION", "CLAIMS", "OTHER"]
 
@@ -29,6 +29,9 @@ class Passage(BaseModel):
     sectionType: SectionType
     startOffset: int
     endOffset: int
+    paragraphId: str | None = None
+    claimNo: int | None = None
+    figureRefs: list[str] | None = None
 
 
 class Section(BaseModel):
@@ -42,6 +45,16 @@ class DocumentMetadata(BaseModel):
     title: str
     sourceFile: str
     ingestedAt: str
+    documentId: str | None = None
+    publicationDate: str | None = None
+    applicationNo: str | None = None
+    filingDate: str | None = None
+    applicationFilingDate: str | None = None
+    inventors: list[dict[str, str]] | None = None
+    assignee: dict[str, str] | None = None
+    cpc: list[dict[str, str]] | None = None
+    domesticPriority: list[str] | None = None
+    usClassCurrent: str | None = None
 
 
 class Document(BaseModel):
@@ -59,11 +72,76 @@ class ContainsFilter(BaseModel):
     value: str
 
 
-QueryFilter = Annotated[Union[SectionFilter, ContainsFilter], Field(discriminator="kind")]
+class MetadataFilter(BaseModel):
+    kind: Literal["metadata"]
+    field: str
+    value: str
+
+
+class CpcFilter(BaseModel):
+    kind: Literal["cpc"]
+    value: str
+
+
+QueryFilter = Annotated[
+    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter],
+    Field(discriminator="kind"),
+]
+
+
+class QueryClause(BaseModel):
+    filter: QueryFilter
+    negated: bool = False
+
+
+class FilterExpression(BaseModel):
+    kind: Literal["filter"]
+    filter: QueryFilter
+
+
+class NotExpression(BaseModel):
+    kind: Literal["not"]
+    expression: "QueryExpression"
+
+
+class AndExpression(BaseModel):
+    kind: Literal["and"]
+    expressions: list["QueryExpression"]
+
+
+class OrExpression(BaseModel):
+    kind: Literal["or"]
+    expressions: list["QueryExpression"]
+
+
+QueryExpression = Annotated[
+    Union[FilterExpression, NotExpression, AndExpression, OrExpression],
+    Field(discriminator="kind"),
+]
 
 
 class Query(BaseModel):
-    filters: list[QueryFilter]
+    filters: list[QueryFilter] = Field(default_factory=list)
+    groups: list[list[QueryClause]] | None = None
+    expression: QueryExpression | None = None
+
+    @model_validator(mode="after")
+    def normalize_groups(self) -> "Query":
+        if self.expression is None and self.groups is None:
+            self.groups = [[QueryClause(filter=query_filter) for query_filter in self.filters]]
+            self.expression = _groups_to_expression(self.groups)
+        elif self.expression is None and self.groups is not None:
+            self.expression = _groups_to_expression(self.groups)
+        elif self.expression is not None and self.groups is None:
+            self.groups = _expression_to_groups(self.expression)
+
+        if not self.filters and self.groups:
+            self.filters = [clause.filter for group in self.groups for clause in group if not clause.negated]
+
+        if not self.groups or any(not group for group in self.groups):
+            raise ValueError("Query requires at least one filter.")
+
+        return self
 
 
 class QueryMatch(BaseModel):
@@ -84,12 +162,62 @@ class QueryResult(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    documentId: str
+    documentIds: list[str] = Field(default_factory=list)
+    documentId: str | None = None
     queryText: str
+
+    @model_validator(mode="after")
+    def normalize_document_ids(self) -> "QueryRequest":
+        if not self.documentIds and self.documentId:
+            self.documentIds = [self.documentId]
+
+        if not self.documentIds:
+            raise ValueError("Select at least one document.")
+
+        return self
 
 
 class ParseDocumentRequest(BaseModel):
     fileName: str
+
+
+def _groups_to_expression(groups: list[list[QueryClause]]) -> QueryExpression:
+    group_expressions: list[QueryExpression] = []
+    for group in groups:
+        expressions = [_clause_to_expression(clause) for clause in group]
+        group_expressions.append(expressions[0] if len(expressions) == 1 else AndExpression(kind="and", expressions=expressions))
+
+    return group_expressions[0] if len(group_expressions) == 1 else OrExpression(kind="or", expressions=group_expressions)
+
+
+def _clause_to_expression(clause: QueryClause) -> QueryExpression:
+    expression: QueryExpression = FilterExpression(kind="filter", filter=clause.filter)
+    return NotExpression(kind="not", expression=expression) if clause.negated else expression
+
+
+def _expression_to_groups(expression: QueryExpression) -> list[list[QueryClause]]:
+    # Compatibility projection for callers that still inspect the old OR-of-ANDs
+    # fields. Nested expressions that cannot be represented exactly are flattened
+    # to their leaf clauses, while execution uses the expression tree.
+    if isinstance(expression, OrExpression):
+        return [_expression_to_clauses(child) for child in expression.expressions]
+
+    return [_expression_to_clauses(expression)]
+
+
+def _expression_to_clauses(expression: QueryExpression, negated: bool = False) -> list[QueryClause]:
+    if isinstance(expression, FilterExpression):
+        return [QueryClause(filter=expression.filter, negated=negated)]
+
+    if isinstance(expression, NotExpression):
+        return _expression_to_clauses(expression.expression, not negated)
+
+    clauses: list[QueryClause] = []
+    if isinstance(expression, (AndExpression, OrExpression)):
+        for child in expression.expressions:
+            clauses.extend(_expression_to_clauses(child, negated))
+
+    return clauses
 
 
 def coerce_section_type(raw: str) -> SectionType | None:

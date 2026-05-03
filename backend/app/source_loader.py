@@ -24,7 +24,7 @@ def load_source_text(source_path: Path) -> str:
 def _extract_text_from_pdf(source_path: Path) -> str:
     try:
         reader = PdfReader(str(source_path))
-    except Exception as error:  # pragma: no cover - pypdf raises varied error types.
+    except Exception as error:  # pragma: no cover, pypdf raises varied error types.
         raise ValueError(f"Failed to read PDF: {source_path.name}") from error
 
     page_text: list[str] = []
@@ -45,11 +45,10 @@ def _extract_text_from_pdf(source_path: Path) -> str:
 
 def _normalize_pdf_text(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    # Join words broken by line-wrap hyphenation.
+    # join words broken by line-wrap hyphenation
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-    # Flatten hard-wrapped lines within paragraphs.
-    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
-    # Normalize whitespace.
-    text = re.sub(r"[ \t]+", " ", text)
+    # preserve line boundaries because USPTO PDFs expose headings and numbered paragraphs as separate lines
+    # paragraph wrapping is handled by the parser
+    text = "\n".join(re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines())
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text

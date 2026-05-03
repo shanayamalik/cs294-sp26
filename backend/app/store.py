@@ -39,5 +39,5 @@ class DocumentStore:
     def write_document(self, parsed_dir: Path, document: Document) -> Path:
         parsed_dir.mkdir(parents=True, exist_ok=True)
         out_path = parsed_dir / f"{document.metadata.id}.generated.json"
-        out_path.write_text(document.model_dump_json(indent=2), encoding="utf-8")
+        out_path.write_text(document.model_dump_json(indent=2, exclude_none=True), encoding="utf-8")
         return out_path

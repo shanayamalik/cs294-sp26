@@ -110,6 +110,7 @@ document analysis, contextual inquiry, sensemaking, information work, HCI}
 %% ====================================================================
 \section{Motivation}
 
+\smallskip\noindent\textbf{The stakes of patent examination.}
 Patent examination is a high-stakes, knowledge-intensive activity in which
 trained examiners must locate prior art---existing patents, publications, or
 other disclosures---that \emph{anticipates} or \emph{obviates} each claim in a
@@ -124,6 +125,7 @@ appears so it can be cited in an office action. For complex technical art
 units---software, biomedical devices, quantum computing---this cycle can span
 dozens of documents and hundreds of individual claim elements per application.
 
+\smallskip\noindent\textbf{Why existing tools are insufficient.}
 Current search infrastructure, including the USPTO's internal EAST and WEST
 systems as well as commercial tools such as PatSnap and Derwent Innovation,
 treats this workflow at the document level. A query returns a ranked list of
@@ -135,6 +137,7 @@ evidentiary weight. Passage-level retrieval, section-aware filtering, and
 metadata-constrained queries are not available as first-class capabilities in
 any tool accessible to working examiners.
 
+\smallskip\noindent\textbf{Evidence from practitioners.}
 Through a contextual inquiry study with ten practicing patent examiners (reported
 in full in Sections~3--4), we identified five recurring needs that current
 tooling does not address. Two of these needs are particularly relevant to the
@@ -151,6 +154,7 @@ paragraph anchor (e.g., \texttt{[0042]}); for pre-AIA granted patents, it is a
 column-and-line number. This pinpoint address is embedded in the document's
 structure, yet retrieving by it is not possible in any current tool.
 
+\smallskip\noindent\textbf{The root cause: documents as opaque blobs.}
 A further structural problem unifies all five needs: patent documents are
 treated as opaque text blobs. Queries operate over full-text indexes; results
 are document-level rankings. The rich internal structure of a patent---its
@@ -162,6 +166,7 @@ relevant section, and scan manually. This is not a failure of individual tools
 but a consequence of the retrieval model: when documents are the unit of
 retrieval, there is no path to passage-level precision.
 
+\smallskip\noindent\textbf{Our approach and expected outcomes.}
 We propose a different approach. Rather than building another document-level
 search interface, we expose patent documents as \emph{structured, queryable
 data}. Our system parses each patent into a \texttt{Document~$\to$~Section~$\to$~Passage}
@@ -173,6 +178,7 @@ operators. The query executes over the passage-level representation and returns
 matched passages with their full provenance: which document, which section,
 which paragraph anchor, and neighboring context.
 
+\smallskip\noindent\textbf{Why a DSL fits this population.}
 This design is motivated by two key insights from our need-finding. First,
 patent examiners are not casual users: they are technical specialists who
 write Boolean search strings as a core job skill, and several participants

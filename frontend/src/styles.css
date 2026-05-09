@@ -29,6 +29,8 @@ body {
   padding: 1rem;
   max-width: 1200px;
   margin: 0 auto;
+  min-height: 100vh;
+  align-items: start;
 }
 
 .panel {
@@ -37,6 +39,7 @@ body {
   border-radius: 14px;
   padding: 1rem;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  min-width: 0;
 }
 
 h1,
@@ -157,6 +160,9 @@ button:disabled {
 .results {
   display: grid;
   gap: 0.8rem;
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .resultCard {
@@ -164,6 +170,9 @@ button:disabled {
   border-radius: 8px;
   padding: 0.8rem;
   background: #fffcf6;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .resultCard header {

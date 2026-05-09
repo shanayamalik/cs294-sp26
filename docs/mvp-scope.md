@@ -58,8 +58,8 @@
 - side-by-side interface between query dsl and hits in initial search query documents (set of documents our dsl will search over)
   - should support very fast indexing of all documents, very quickly adapting the search with fast refreshes (possibly 
   interesting work in determining a way to develop fast indexing of documents?)
-  - ideally should nearly match the speed of autocorrect systems (nothing happens as you type, but once you stop for 
-  a second or less, then updated results should appear)
+  - ~~ideally should nearly match the speed of autocorrect systems (nothing happens as you type, but once you stop for 
+  a second or less, then updated results should appear)~~ **done** — 600ms debounced live refresh implemented (shanaya branch, May 2026)
 
 - Most importantly, *include interesting features unique from current USPTO search query* capabilities
   - some feature overlaps can be fine due to enhancements from our interface vs USPTO search interface (passage-level 

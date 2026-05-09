@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DocumentSummary = {
   id: string;
@@ -52,6 +52,47 @@ export default function App() {
 
   const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
 
+  const runQuery = useCallback(async (docIds: string[], text: string) => {
+    if (docIds.length === 0 || !text.trim()) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: docIds, queryText: text }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? payload.detail ?? `Query failed: ${response.status}`);
+      }
+
+      setQueryResult(payload as QueryResponse);
+      setSubmittedQueryText(text);
+    } catch (err) {
+      setQueryResult(null);
+      setSubmittedQueryText("");
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      void runQuery(selectedDocumentIds, queryText);
+    }, 600);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [queryText, selectedDocumentIds, runQuery]);
+
   async function loadDocuments() {
     try {
       const response = await fetch(`${API_BASE}/documents`);
@@ -91,34 +132,7 @@ export default function App() {
       setError("Select at least one document first.");
       return;
     }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(`${API_BASE}/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentIds: selectedDocumentIds,
-          queryText
-        })
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error ?? payload.detail ?? `Query failed: ${response.status}`);
-      }
-
-      setQueryResult(payload as QueryResponse);
-      setSubmittedQueryText(queryText);
-    } catch (err) {
-      setQueryResult(null);
-      setSubmittedQueryText("");
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    void runQuery(selectedDocumentIds, queryText);
   }
 
   return (

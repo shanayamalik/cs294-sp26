@@ -110,7 +110,103 @@ document analysis, contextual inquiry, sensemaking, information work, HCI}
 %% ====================================================================
 \section{Motivation}
 
-% TODO
+Patent examination is a high-stakes, knowledge-intensive activity in which
+trained examiners must locate prior art---existing patents, publications, or
+other disclosures---that \emph{anticipates} or \emph{obviates} each claim in a
+pending patent application. Because issued patents carry legal force, the
+quality of examination directly affects the validity of the intellectual
+property record and the downstream costs of litigation and re-examination.
+Yet the core task of finding prior art remains largely manual: an examiner
+reads the claims, identifies the key technical concepts, formulates search
+queries, retrieves candidate documents, reads those documents to find relevant
+passages, and then records exactly \emph{where} in each document the evidence
+appears so it can be cited in an office action. For complex technical art
+units---software, biomedical devices, quantum computing---this cycle can span
+dozens of documents and hundreds of individual claim elements per application.
+
+Current search infrastructure, including the USPTO's internal EAST and WEST
+systems as well as commercial tools such as PatSnap and Derwent Innovation,
+treats this workflow at the document level. A query returns a ranked list of
+patent documents; the examiner then opens each document and manually locates
+the relevant section. Tools surface keyword hit \emph{counts}, but do not
+distinguish whether a hit appears in the abstract, the background, the
+detailed specification, or the claims---sections that carry very different
+evidentiary weight. Passage-level retrieval, section-aware filtering, and
+metadata-constrained queries are not available as first-class capabilities in
+any tool accessible to working examiners.
+
+Through a contextual inquiry study with ten practicing patent examiners (reported
+in full in Sections~3--4), we identified five recurring needs that current
+tooling does not address. Two of these needs are particularly relevant to the
+design of a document analysis environment. First, examiners need
+\emph{section-aware retrieval}: P05 explicitly described wanting hits in the
+background and detailed description sections, not in the abstract or claims,
+because the specification is where the technical teaching that maps to claim
+elements is found. Section type is a structural property of every patent
+document, yet no current tool exposes it as a query parameter. Second,
+examiners need \emph{pinpoint citation}: once a relevant passage is located,
+examiners must record its position in the document for citation in the office
+action. For post-2001 USPTO publications, this position is a numbered
+paragraph anchor (e.g., \texttt{[0042]}); for pre-AIA granted patents, it is a
+column-and-line number. This pinpoint address is embedded in the document's
+structure, yet retrieving by it is not possible in any current tool.
+
+A further structural problem unifies all five needs: patent documents are
+treated as opaque text blobs. Queries operate over full-text indexes; results
+are document-level rankings. The rich internal structure of a patent---its
+sections, numbered paragraphs, claim hierarchy, and embedded
+metadata---is invisible to the query layer. An examiner who wants to find all
+passages in the detailed specification of a particular assignee's patents that
+discuss a specific technical mechanism must open each document, scroll to the
+relevant section, and scan manually. This is not a failure of individual tools
+but a consequence of the retrieval model: when documents are the unit of
+retrieval, there is no path to passage-level precision.
+
+We propose a different approach. Rather than building another document-level
+search interface, we expose patent documents as \emph{structured, queryable
+data}. Our system parses each patent into a \texttt{Document~$\to$~Section~$\to$~Passage}
+hierarchy and extracts all available metadata fields. Examiners then write
+queries in a minimal domain-specific language (DSL) that combines structural
+filters---\texttt{section:SPECIFICATION}, \texttt{paragraph:0042}---with
+content filters and metadata constraints, all composable with Boolean
+operators. The query executes over the passage-level representation and returns
+matched passages with their full provenance: which document, which section,
+which paragraph anchor, and neighboring context.
+
+This design is motivated by two key insights from our need-finding. First,
+patent examiners are not casual users: they are technical specialists who
+write Boolean search strings as a core job skill, and several participants
+described current query interfaces as too limited rather than too complex
+(P04, P07, P10). A textual DSL is therefore appropriate for this population
+in a way it might not be for a general consumer audience. Second, the
+iterative, refinement-based search strategy that examiners actually use (Need~5)
+is precisely what a composable query language supports: an examiner can start
+with a broad \texttt{section:CLAIMS} filter, observe the results, narrow with
+\texttt{AND contains:"neural interface"}, and further restrict with
+\texttt{AND NOT paragraph:0001} to skip boilerplate preambles. Each refinement
+is a surgical edit to the query string, not a round-trip through a separate
+GUI tool.
+
+The contributions of this paper are as follows:
+\begin{itemize}
+  \item We describe a passage-level document model for patent text that
+    exposes section type, numbered paragraph anchors, claim structure, and
+    rich patent metadata as first-class query targets, grounded in the
+    structural needs identified through contextual inquiry.
+  \item We define a minimal DSL for composable patent queries, supporting
+    \texttt{section:}, \texttt{contains:}, \texttt{paragraph:},
+    \texttt{cpc:}, and \texttt{meta.} filters with full Boolean logic
+    (\texttt{AND}, \texttt{OR}, \texttt{NOT}, parentheses), and describe its
+    design rationale in terms of the five needs from our study.
+  \item We present a prototype implementation---a FastAPI backend with a
+    React frontend---that parses USPTO-format patent documents (both
+    plain-text and text-extractable PDF) into the passage-level model and
+    executes DSL queries with passage-level results, including neighboring
+    context and match provenance.
+  \item We characterize the open technical challenges in this design space,
+    including document parsing fidelity, query expressiveness limits, and
+    the performance tradeoffs of in-memory passage indexing at corpus scale.
+\end{itemize}
 
 
 %% ====================================================================

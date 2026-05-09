@@ -83,8 +83,13 @@ class CpcFilter(BaseModel):
     value: str
 
 
+class ParagraphFilter(BaseModel):
+    kind: Literal["paragraph"]
+    value: str
+
+
 QueryFilter = Annotated[
-    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter],
+    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter, ParagraphFilter],
     Field(discriminator="kind"),
 ]
 

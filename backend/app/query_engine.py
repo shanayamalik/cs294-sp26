@@ -9,6 +9,7 @@ from .models import (
     MetadataFilter,
     NotExpression,
     OrExpression,
+    ParagraphFilter,
     Query,
     QueryClause,
     QueryExpression,
@@ -103,6 +104,9 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
     if isinstance(query_filter, ContainsFilter):
         return query_filter.value.lower() in candidate.passage.text.lower()
 
+    if isinstance(query_filter, ParagraphFilter):
+        return candidate.passage.paragraphId == query_filter.value
+
     return False
 
 
@@ -120,6 +124,9 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
 
     if isinstance(query_filter, ContainsFilter):
         return f'{prefix}contains:"{query_filter.value}"'
+
+    if isinstance(query_filter, ParagraphFilter):
+        return f"{prefix}paragraph:{query_filter.value}"
 
     return f"{prefix}unknown"
 

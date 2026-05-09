@@ -11,6 +11,7 @@ from .models import (
     MetadataFilter,
     NotExpression,
     OrExpression,
+    ParagraphFilter,
     Query,
     QueryExpression,
     SectionFilter,
@@ -184,7 +185,9 @@ def _parse_clause(clause: str):
         if not code:
             raise ValueError("cpc filter requires a non-empty code.")
         return CpcFilter(kind="cpc", value=code)
-
+    paragraph_match = re.match(r'^paragraph:([0-9]+)$', clause, flags=re.IGNORECASE)
+    if paragraph_match:
+        return ParagraphFilter(kind="paragraph", value=paragraph_match.group(1))
     metadata_match = re.match(
         r'^meta(?:data)?\.([A-Za-z][A-Za-z0-9_.-]*):(?:"([^"]+)"|(.+))$',
         clause,

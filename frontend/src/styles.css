@@ -155,6 +155,8 @@ button:disabled {
   margin-top: 0.8rem;
   color: var(--error);
   font-weight: 600;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .results {

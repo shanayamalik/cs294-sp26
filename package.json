@@ -7,11 +7,11 @@
     "frontend"
   ],
   "scripts": {
-    "dev:backend": "cd backend && python3 -m uvicorn app.main:app --reload --port 4000",
+    "dev:backend": "cd backend && .venv/bin/python -m uvicorn app.main:app --reload --port 4000",
     "dev:frontend": "npm run dev --workspace frontend",
     "build": "npm run build --workspace frontend",
-    "test:backend": "cd backend && python3 -m pytest",
-    "parse:raw": "cd backend && python3 -m scripts.parse_raw_to_json"
+    "test:backend": "cd backend && .venv/bin/python -m pytest",
+    "parse:raw": "cd backend && .venv/bin/python -m scripts.parse_raw_to_json"
   },
   "engines": {
     "node": ">=20"

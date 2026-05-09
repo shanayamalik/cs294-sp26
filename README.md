@@ -17,10 +17,13 @@ We design a programming-oriented document analysis environment where patent docu
   - `meta.KEY == VALUE` (optional)
   - `cpc == CODE` (optional)
   - `contains("phrase")`
-  - `paragraph == NNNN` (optional drill-down)
-  - `AND`
+  - `paragraph == NNNN` (optional pinpoint drill-down)
+- Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
 - Lightweight textual DSL:
   - `section:SUMMARY AND contains:"normalizer task queue"`
+  - `section:CLAIMS AND paragraph:0042`
+  - `contains:"server" OR contains:"network"`
+  - `NOT section:OTHER`
 - Query execution with provenance metadata, grouped by matched document
 - Thin UI to run queries and inspect passage context
 
@@ -73,9 +76,16 @@ npm run dev:frontend
 section:SUMMARY AND contains:"normalizer task queue"
 ```
 
-## Current Goals
+## What's Been Done (shanaya branch)
 
-1. Parse one additional patent into structured JSON.
-2. Add `OR` support to the internal query model.
-3. Add query reuse across multiple documents.
-4. Add one evaluator-facing demo scenario tied to need-finding.
+- `paragraph:NNNN` filter implemented and tested against USPTO PDF patents
+- `OR` and `NOT` boolean operators fully supported
+- Multi-document querying with per-result document provenance
+- PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
+- `npm run dev:backend` fixed to use venv python
+
+## Next Steps
+
+- Need-finding-motivated filters (e.g. date range, inventor search)
+- Pre-loading / lazy loading for larger document sets
+- USPTO API integration

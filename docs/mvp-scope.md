@@ -21,6 +21,7 @@
   - `meta.KEY:"value"`
   - nested metadata paths such as `meta.assignee.name:"value"`
   - `cpc:"code"`
+  - `paragraph:NNNN` (pinpoint filter by numbered paragraph anchor)
 - Query boolean logic:
   - `AND`
   - `OR`
@@ -42,7 +43,7 @@
 ## Goal Features
 
 - More Query filters:
-  - `paragraph:NNNN` (optional pinpoint filter, not primary retrieval)
+  - ~~`paragraph:NNNN` (optional pinpoint filter, not primary retrieval)~~ **done** (shanaya branch, May 2026)
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
   - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 

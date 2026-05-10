@@ -159,6 +159,8 @@ class QueryMatch(BaseModel):
     contextBefore: str | None
     contextAfter: str | None
     reasons: list[str]
+    paragraphId: str | None = None
+    claimNo: int | None = None
 
 
 class QueryResult(BaseModel):

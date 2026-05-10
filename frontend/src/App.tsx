@@ -20,6 +20,8 @@ type QueryResponse = {
       contextBefore: string | null;
       contextAfter: string | null;
       reasons: string[];
+      paragraphId: string | null;
+      claimNo: number | null;
     }>;
   };
 };
@@ -214,6 +216,8 @@ export default function App() {
                   <strong>{match.sectionType}</strong>
                   <span>{highlightText(match.sectionTitle, highlightTerms)}</span>
                   <span>Passage {match.passageIndex}</span>
+                  {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
+                  {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
                 </header>
 
                 <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>

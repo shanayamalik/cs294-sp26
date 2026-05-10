@@ -164,6 +164,8 @@ def _candidate_to_match(document: Document, candidate: _Candidate) -> QueryMatch
         contextBefore=passages[index - 1].text if index > 0 else None,
         contextAfter=passages[index + 1].text if index < len(passages) - 1 else None,
         reasons=candidate.reasons,
+        paragraphId=candidate.passage.paragraphId,
+        claimNo=candidate.passage.claimNo,
     )
 
 

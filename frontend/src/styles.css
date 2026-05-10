@@ -146,6 +146,16 @@ button:disabled {
   font-size: 0.82rem;
 }
 
+.anchor {
+  font-family: monospace;
+  font-size: 0.82rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 0.3rem;
+  color: var(--muted);
+}
+
 .docMeta {
   color: var(--muted);
   font-size: 0.9rem;

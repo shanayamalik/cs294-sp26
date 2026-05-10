@@ -100,3 +100,39 @@ def test_execute_query_metadata_date_comparison() -> None:
     assert result.totalMatches == 1
     assert result.matches[0].passageId == "p1"
     assert 'Matched meta.filingDate:<"2018-03-15"' in result.matches[0].reasons
+
+
+def test_execute_query_metadata_contains_nested_field() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            assignee={"name": "Google LLC", "city": "Mountain View"},
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[MetadataFilter(kind="metadata", field="assignee.name", operator="contains", value="Google")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+    assert 'Matched meta.assignee.name:~"Google"' in result.matches[0].reasons

@@ -194,7 +194,7 @@ def _parse_clause(clause: str):
         raw_value = metadata_match.group(2).strip()
         operator = "eq"
 
-        for prefix, operator_name in (("<=", "lte"), (">=", "gte"), ("<", "lt"), (">", "gt"), ("=", "eq")):
+        for prefix, operator_name in (("<=", "lte"), (">=", "gte"), ("~", "contains"), ("^", "startswith"), ("<", "lt"), (">", "gt"), ("=", "eq")):
             if raw_value.startswith(prefix):
                 operator = operator_name
                 raw_value = raw_value[len(prefix) :].strip()

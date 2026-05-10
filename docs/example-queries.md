@@ -12,3 +12,5 @@
 10. `(meta.assignee.name:"Google LLC" OR meta.assignee.name:"ORACLE INTERNATIONAL CORPORATION") AND section:CLAIMS AND contains:"virtual machine"`
 11. `meta.filingDate:<2018-03-15 AND section:SPECIFICATION AND contains:"virtual network"`
 12. `meta.publicationDate:>=2019-01-01 AND contains:"usage metrics"`
+13. `meta.assignee.name:~"Google" AND section:CLAIMS`
+14. `meta.inventors.nameAndCity:^"Anderson" AND contains:"virtual machine"`

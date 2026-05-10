@@ -75,6 +75,7 @@ class ContainsFilter(BaseModel):
 class MetadataFilter(BaseModel):
     kind: Literal["metadata"]
     field: str
+    operator: Literal["eq", "lt", "lte", "gt", "gte"] = "eq"
     value: str
 
 

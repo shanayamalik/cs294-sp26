@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.models import Document, DocumentMetadata, Passage, Query, Section, SectionFilter, ContainsFilter
+from app.models import ContainsFilter, Document, DocumentMetadata, MetadataFilter, Passage, Query, Section, SectionFilter
 from app.query_engine import execute_query
 
 
@@ -64,3 +64,39 @@ def test_execute_query_section_and_contains() -> None:
     assert result.totalMatches == 1
     assert result.matches[0].passageId == "p1"
     assert "Matched section:SPECIFICATION" in result.matches[0].reasons
+
+
+def test_execute_query_metadata_date_comparison() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            filingDate="2011-07-19",
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[MetadataFilter(kind="metadata", field="filingDate", operator="lt", value="2018-03-15")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+    assert 'Matched meta.filingDate:<"2018-03-15"' in result.matches[0].reasons

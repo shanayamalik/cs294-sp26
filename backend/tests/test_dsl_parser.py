@@ -17,3 +17,13 @@ def test_parse_unsupported_clause() -> None:
         raise AssertionError("Expected parse_dsl to raise ValueError")
     except ValueError as error:
         assert "Unsupported clause" in str(error)
+
+
+def test_parse_metadata_comparison_query() -> None:
+    query = parse_dsl("meta.filingDate:<2018-03-15")
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "metadata"
+    assert query.filters[0].field == "filingDate"
+    assert query.filters[0].operator == "lt"
+    assert query.filters[0].value == "2018-03-15"

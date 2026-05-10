@@ -15,6 +15,7 @@ We design a programming-oriented document analysis environment where patent docu
 - Internal query model with filters:
   - `section == TYPE`
   - `meta.KEY == VALUE` (optional)
+  - `meta.KEY < VALUE`, `<=`, `>`, `>=` for comparable metadata such as filing dates
   - `cpc == CODE` (optional)
   - `contains("phrase")`
   - `paragraph == NNNN` (optional pinpoint drill-down)
@@ -22,6 +23,7 @@ We design a programming-oriented document analysis environment where patent docu
 - Lightweight textual DSL:
   - `section:SUMMARY AND contains:"normalizer task queue"`
   - `section:CLAIMS AND paragraph:0042`
+  - `meta.filingDate:<2018-03-15 AND section:SPECIFICATION`
   - `contains:"server" OR contains:"network"`
   - `NOT section:OTHER`
 - Query execution with provenance metadata, grouped by matched document
@@ -84,6 +86,7 @@ section:SUMMARY AND contains:"normalizer task queue"
 - `OR` and `NOT` boolean operators fully supported
 - Multi-document querying with per-result document provenance
 - Result cards now display paragraph / claim anchors (`¶[N]`, `Claim N`) when available
+- Filing-date comparison filters now supported for comparable metadata fields such as `meta.filingDate:<2018-03-15`
 - PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
 - `npm run dev:backend` fixed to use venv python
 - Frontend build config cleaned up so TypeScript no longer emits stale `.js` / `.d.ts` files into `frontend/src`

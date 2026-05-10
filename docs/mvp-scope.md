@@ -19,6 +19,7 @@
   - `section:TYPE`
   - `contains:"phrase"`
   - `meta.KEY:"value"`
+  - `meta.KEY:<value`, `<=value`, `>value`, `>=value` for comparable metadata fields such as filing dates
   - nested metadata paths such as `meta.assignee.name:"value"`
   - `cpc:"code"`
   - `paragraph:NNNN` (pinpoint filter by numbered paragraph anchor)
@@ -47,7 +48,7 @@
 - More Query filters:
   - ~~`paragraph:NNNN` (optional pinpoint filter, not primary retrieval)~~ **done** 
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
-- Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)
+- ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
   - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 
@@ -73,24 +74,24 @@
 
 ## Highest-Value Remaining Work by User Need
 
-1. Filing-date comparison filters
-  - Most directly addresses Need 2 (avoiding wasted work on legally unusable references)
-  - Example target: `meta.filingDate:<2018-03-15`
-
-2. Claim-mapping support built on top of retrieved passages
+1. Claim-mapping support built on top of retrieved passages
   - Most directly addresses Need 3
   - Examples: copy citation button, exportable citation trace, structured claim-chart workspace
 
-3. Query authoring support for iterative refinement
+2. Query authoring support for iterative refinement
   - Most directly addresses Need 5
   - Examples: DSL cheat sheet, saved query snippets, example library in the UI
 
-4. More metadata filters tied to examiner scoping workflows
+3. More metadata filters tied to examiner scoping workflows
   - Addresses Need 1 and Need 2 indirectly by making corpus narrowing easier before manual synonym expansion
-  - Examples: richer assignee / inventor / CPC exploration, date operators, priority metadata exposure
+  - Examples: richer assignee / inventor / CPC exploration, additional date operators, priority metadata exposure
 
-5. Corpus-scale loading and USPTO integration
+4. Corpus-scale loading and USPTO integration
   - Important for realism and workflow fit, but less central to the paper's strongest current claims than the items above
+
+5. Richer admissibility logic beyond a raw filing-date comparison
+  - Strongly tied to Need 2, but more legally involved than the current MVP filter
+  - Examples: effective-priority handling, domestic priority chain reasoning, publication-vs-filing disambiguation
 
 
 ### Stretchy Goals

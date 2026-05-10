@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from .models import (
     ContainsFilter,
     CpcFilter,
@@ -9,6 +11,7 @@ from .models import (
     MetadataFilter,
     NotExpression,
     OrExpression,
+    ParagraphFilter,
     Query,
     QueryClause,
     QueryExpression,
@@ -92,7 +95,7 @@ def _evaluate_expression(document: Document, candidate: _Candidate, expression: 
 
 def _filter_matches(document: Document, candidate: _Candidate, query_filter: QueryFilter) -> bool:
     if isinstance(query_filter, MetadataFilter):
-        return _metadata_matches(document, query_filter.field, query_filter.value)
+        return _metadata_matches(document, query_filter.field, query_filter.operator, query_filter.value)
 
     if isinstance(query_filter, CpcFilter):
         return _cpc_matches(document, query_filter.value)
@@ -103,6 +106,9 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
     if isinstance(query_filter, ContainsFilter):
         return query_filter.value.lower() in candidate.passage.text.lower()
 
+    if isinstance(query_filter, ParagraphFilter):
+        return candidate.passage.paragraphId == query_filter.value
+
     return False
 
 
@@ -110,7 +116,14 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
     prefix = "Matched NOT " if negated else "Matched "
 
     if isinstance(query_filter, MetadataFilter):
-        return f'{prefix}meta.{query_filter.field}:"{query_filter.value}"'
+        operator = {
+            "eq": "",
+            "lt": "<",
+            "lte": "<=",
+            "gt": ">",
+            "gte": ">=",
+        }[query_filter.operator]
+        return f'{prefix}meta.{query_filter.field}:{operator}"{query_filter.value}"'
 
     if isinstance(query_filter, CpcFilter):
         return f'{prefix}cpc:"{query_filter.value}"'
@@ -120,6 +133,9 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
 
     if isinstance(query_filter, ContainsFilter):
         return f'{prefix}contains:"{query_filter.value}"'
+
+    if isinstance(query_filter, ParagraphFilter):
+        return f"{prefix}paragraph:{query_filter.value}"
 
     return f"{prefix}unknown"
 
@@ -157,6 +173,8 @@ def _candidate_to_match(document: Document, candidate: _Candidate) -> QueryMatch
         contextBefore=passages[index - 1].text if index > 0 else None,
         contextAfter=passages[index + 1].text if index < len(passages) - 1 else None,
         reasons=candidate.reasons,
+        paragraphId=candidate.passage.paragraphId,
+        claimNo=candidate.passage.claimNo,
     )
 
 
@@ -179,12 +197,12 @@ def _flatten(document: Document) -> list[_Candidate]:
     return output
 
 
-def _metadata_matches(document: Document, raw_field: str, expected: str) -> bool:
+def _metadata_matches(document: Document, raw_field: str, operator: str, expected: str) -> bool:
     value = _metadata_value(document, raw_field)
     if value is None:
         return False
 
-    return any(_scalar_matches(item, expected) for item in _flatten_value(value))
+    return any(_scalar_matches(item, operator, expected) for item in _flatten_value(value))
 
 
 def _metadata_value(document: Document, raw_field: str):
@@ -260,13 +278,56 @@ def _flatten_value(value) -> list:
     return [value]
 
 
-def _scalar_matches(value, expected: str) -> bool:
+def _scalar_matches(value, operator: str, expected: str) -> bool:
     if value is None:
         return False
 
-    actual = _normalize_scalar(str(value))
-    target = _normalize_scalar(expected)
-    return actual == target
+    actual_text = str(value)
+    if operator == "eq":
+        actual = _normalize_scalar(actual_text)
+        target = _normalize_scalar(expected)
+        return actual == target
+
+    actual_comparable = _coerce_comparable(actual_text)
+    expected_comparable = _coerce_comparable(expected)
+    if actual_comparable is None or expected_comparable is None:
+        return False
+
+    if operator == "lt":
+        return actual_comparable < expected_comparable
+    if operator == "lte":
+        return actual_comparable <= expected_comparable
+    if operator == "gt":
+        return actual_comparable > expected_comparable
+    if operator == "gte":
+        return actual_comparable >= expected_comparable
+
+    return False
+
+
+def _coerce_comparable(value: str):
+    normalized = value.strip()
+    if not normalized:
+        return None
+
+    parsed_date = _parse_date(normalized)
+    if parsed_date is not None:
+        return parsed_date
+
+    if re.fullmatch(r"-?\d+(?:\.\d+)?", normalized):
+        return float(normalized)
+
+    return None
+
+
+def _parse_date(value: str) -> date | None:
+    for fmt in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+
+    return None
 
 
 def _normalize_scalar(value: str) -> str:

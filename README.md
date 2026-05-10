@@ -15,14 +15,21 @@ We design a programming-oriented document analysis environment where patent docu
 - Internal query model with filters:
   - `section == TYPE`
   - `meta.KEY == VALUE` (optional)
+  - `meta.KEY < VALUE`, `<=`, `>`, `>=` for comparable metadata such as filing dates
   - `cpc == CODE` (optional)
   - `contains("phrase")`
-  - `paragraph == NNNN` (optional drill-down)
-  - `AND`
+  - `paragraph == NNNN` (optional pinpoint drill-down)
+- Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
 - Lightweight textual DSL:
   - `section:SUMMARY AND contains:"normalizer task queue"`
+  - `section:CLAIMS AND paragraph:0042`
+  - `meta.filingDate:<2018-03-15 AND section:SPECIFICATION`
+  - `contains:"server" OR contains:"network"`
+  - `NOT section:OTHER`
 - Query execution with provenance metadata, grouped by matched document
 - Thin UI to run queries and inspect passage context
+- Result cards show per-match provenance, including document id, section, passage index, and anchor badges when available (`paragraphId`, `claimNo`)
+- Live query refresh with a 600ms debounce for iterative query refinement
 
 ## Quick Start
 
@@ -73,9 +80,21 @@ npm run dev:frontend
 section:SUMMARY AND contains:"normalizer task queue"
 ```
 
-## Current Goals
+## What's Been Done (shanaya branch)
 
-1. Parse one additional patent into structured JSON.
-2. Add `OR` support to the internal query model.
-3. Add query reuse across multiple documents.
-4. Add one evaluator-facing demo scenario tied to need-finding.
+- `paragraph:NNNN` filter implemented and tested against USPTO PDF patents
+- `OR` and `NOT` boolean operators fully supported
+- Multi-document querying with per-result document provenance
+- Result cards now display paragraph / claim anchors (`¶[N]`, `Claim N`) when available
+- Filing-date comparison filters now supported for comparable metadata fields such as `meta.filingDate:<2018-03-15`
+- PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
+- `npm run dev:backend` fixed to use venv python
+- Frontend build config cleaned up so TypeScript no longer emits stale `.js` / `.d.ts` files into `frontend/src`
+
+## Next Steps
+
+- Need-finding-motivated filters (especially filing-date comparison and richer metadata predicates)
+- Claim-mapping workflow support beyond retrieval (copy/export citations, structured claim charting)
+- Query authoring aids (cheat sheet, examples, saved query snippets)
+- Pre-loading / lazy loading for larger document sets
+- USPTO API integration

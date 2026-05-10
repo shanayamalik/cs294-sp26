@@ -51,7 +51,8 @@
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
-  - substring / prefix matching for string metadata is now supported
+  - ~~substring / prefix matching for string metadata~~ **done**
+  - remaining work: richer assignee / inventor exploration, additional metadata aliases, and stronger admissibility-oriented date / priority handling
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
   - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 
   as well as avoid needlessly loading unnecessary documents to prevent wasted time querying them

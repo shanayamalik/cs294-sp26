@@ -37,6 +37,7 @@ export default function App() {
   const [error, setError] = useState<string>("");
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
   const [submittedQueryText, setSubmittedQueryText] = useState("");
+  const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
 
   useEffect(() => {
     void loadDocuments();
@@ -84,6 +85,7 @@ export default function App() {
   }, []);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copiedCitationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -116,6 +118,20 @@ export default function App() {
     setSelectedDocumentIds((current) =>
       current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId]
     );
+  }
+
+  async function copyCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
+    const citation = formatCitation(match, documentTitle);
+
+    try {
+      await navigator.clipboard.writeText(citation);
+      const matchKey = `${match.documentId}:${match.passageId}`;
+      setCopiedCitationKey(matchKey);
+      if (copiedCitationTimeoutRef.current) clearTimeout(copiedCitationTimeoutRef.current);
+      copiedCitationTimeoutRef.current = setTimeout(() => setCopiedCitationKey(null), 1600);
+    } catch {
+      setError("Failed to copy citation.");
+    }
   }
 
   function previewPassage(text: string) {
@@ -218,6 +234,13 @@ export default function App() {
                   <span>Passage {match.passageIndex}</span>
                   {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
                   {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
+                  <button
+                    type="button"
+                    className="copyCitationButton"
+                    onClick={() => void copyCitation(match, documentTitle)}
+                  >
+                    {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
+                  </button>
                 </header>
 
                 <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
@@ -246,6 +269,11 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+function formatCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
+  const anchor = match.paragraphId != null ? `¶[${match.paragraphId}]` : match.claimNo != null ? `Claim ${match.claimNo}` : `Passage ${match.passageIndex}`;
+  return `${documentTitle} (${match.documentId}), ${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${anchor}`;
 }
 
 function extractHighlightTerms(queryText: string) {

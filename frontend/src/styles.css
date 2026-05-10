@@ -190,9 +190,25 @@ button:disabled {
 .resultCard header {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.copyCitationButton {
+  margin-left: auto;
+  border: 1px solid #d8c7a7;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: var(--muted);
+  padding: 0.22rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.copyCitationButton:hover {
+  background: #f6ead0;
 }
 
 .resultCard strong {

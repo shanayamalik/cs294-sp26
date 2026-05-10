@@ -26,6 +26,8 @@ We design a programming-oriented document analysis environment where patent docu
   - `NOT section:OTHER`
 - Query execution with provenance metadata, grouped by matched document
 - Thin UI to run queries and inspect passage context
+- Result cards show per-match provenance, including document id, section, passage index, and anchor badges when available (`paragraphId`, `claimNo`)
+- Live query refresh with a 600ms debounce for iterative query refinement
 
 ## Quick Start
 
@@ -81,11 +83,15 @@ section:SUMMARY AND contains:"normalizer task queue"
 - `paragraph:NNNN` filter implemented and tested against USPTO PDF patents
 - `OR` and `NOT` boolean operators fully supported
 - Multi-document querying with per-result document provenance
+- Result cards now display paragraph / claim anchors (`¶[N]`, `Claim N`) when available
 - PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
 - `npm run dev:backend` fixed to use venv python
+- Frontend build config cleaned up so TypeScript no longer emits stale `.js` / `.d.ts` files into `frontend/src`
 
 ## Next Steps
 
-- Need-finding-motivated filters (e.g. date range, inventor search)
+- Need-finding-motivated filters (especially filing-date comparison and richer metadata predicates)
+- Claim-mapping workflow support beyond retrieval (copy/export citations, structured claim charting)
+- Query authoring aids (cheat sheet, examples, saved query snippets)
 - Pre-loading / lazy loading for larger document sets
 - USPTO API integration

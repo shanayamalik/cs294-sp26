@@ -482,87 +482,394 @@ management, date filtering, and claim-to-evidence mapping.
 %% ====================================================================
 \section{Design of the Tool}
 
-% TODO: This section should be 2-3 pages. Answer:
-%   (a) What exactly is the tool?
-%   (b) Walk the reader through a real, interesting task with DSL examples
-%       and/or screenshots. Suggest using a task observed during a CI session
-%       (e.g., P03's claim-mapping workflow, or P05's section-specific search).
-%   (c) How is each design decision tied back to specific need-finding findings?
-%   (d) What were the key design decisions, and how were they made?
-
 \subsection{Overview}
 
-% TODO: Describe the tool at a high level. Our system treats patent documents
-% as structured, queryable data organized in a Document -> Section -> Passage
-% hierarchy. Examiners write queries in a lightweight textual DSL and receive
-% provenance-annotated passage-level results grouped by document.
+\smallskip\noindent\textbf{What the tool is.}
+Our system is a programmatic document analysis environment in which patent
+documents are treated as structured, queryable data rather than opaque text
+blobs. An examiner begins by uploading one or more patent documents (PDF or
+plain text), which the system parses into a \texttt{Document~$\to$~Section~$\to$~Passage}
+hierarchy. The examiner then selects a subset of loaded documents to search
+over and writes a query in a lightweight textual DSL. The system executes the
+query at the passage level and returns a list of matched passages, each
+displayed in a result card. Each card shows: the matched passage text with
+the queried terms highlighted; the document title and section type
+(\textsc{specification}, \textsc{claims}, etc.); the paragraph or claim
+anchor (\texttt{[0042]}, \emph{Claim~3}) if present; the immediately
+preceding and following passages for context; and a human-readable
+explanation of which predicates matched and why.
+
+The interface is a split-panel layout: a document manager and query editor
+on the left, a scrollable list of result cards on the right. Results update
+live as the examiner types, with a 600ms debounce, so the result set
+reflects the current query before the examiner has finished formulating the
+next refinement step. There is no ``run search'' button to press; the tight
+feedback loop is intentional.
+
+\smallskip\noindent\textbf{Why this tool, for this population.}
+Every design decision in this section is traceable to a specific observation
+from our contextual inquiry sessions. The document model reflects the legal
+structure of patents as participants described it. The DSL operators map
+directly to the reasoning strategies participants actually used. The live
+refresh matches the iterative appraise-and-refine cycle that P02 articulated
+as the correct mental model for patent search. We describe these connections
+in detail below.
+
+
+\subsection{Walkthrough: P03's Claim-Mapping Task}
+
+To make the design concrete, we walk through how our tool would support a
+task we observed during session P03. P03 was working a software patent
+application whose independent claim recited a system for \emph{dynamic
+routing table updates}. Having identified seven candidate prior art references
+via a USPC/CPC class search, P03 needed to determine whether any of them
+disclosed the claimed routing mechanism. The process we observed occupied
+more than 20 minutes and involved the following manual steps: (1) opening
+each reference in a USPTO viewer; (2) using CTRL+F to locate the term
+``routing'' anywhere in the document; (3) scrolling through every match
+regardless of section---abstract, background, claims---to assess whether it
+described a dynamic update mechanism; (4) if promising, manually recording
+the paragraph number and section for later citation; and (5) repeating for
+every synonym that P03 could think of (``forwarding table,'' ``FIB,''
+``routing cache''). P03 noted that of the seven initial results, only one
+had a usable filing date, but determining this also required a separate
+manual inspection of each.
+
+With our tool, the same task would proceed as follows.
+
+\smallskip\noindent\emph{Step 1: Load and scope the corpus.}
+The examiner uploads the seven candidate PDFs. The document manager lists
+them with their parsed titles and CPC codes. To immediately filter to a
+legally admissible subset, the examiner can write:
+
+\begin{lstlisting}[caption={Filter by filing date and CPC before opening any document.}]
+meta.filingDate:<2018-03-15 AND cpc:"H04L 45/00"
+\end{lstlisting}
+
+\noindent This eliminates references that postdate the application's
+effective filing date without the examiner having to open each document.
+This directly addresses Need~2: P03 described having to manually inspect
+each of the seven results to determine which had a usable date.
+
+\smallskip\noindent\emph{Step 2: Query across the corpus for the claim element.}
+The examiner then writes a query targeting the specific claim language.
+Rather than typing one term, inspecting results, and then starting over with
+a synonym, the examiner composes the full synonym set in a single query that
+executes across all selected documents simultaneously:
+
+\begin{lstlisting}[caption={Synonym expansion across a loaded corpus (Need 1).}]
+section:SPECIFICATION AND
+  (contains:"routing table" OR contains:"forwarding table"
+   OR contains:"FIB" OR contains:"routing cache")
+\end{lstlisting}
+
+\noindent The result set now contains only passages from the detailed
+specification---the section legally relevant for mapping a claim element to
+evidence---that mention any of the four synonymous terms. Passages from the
+abstract, background, and claims are excluded. Passages from all selected
+documents appear in one scrollable list. This addresses both Need~1 (synonym
+management) and Need~4 (section-scoped keyword localization) simultaneously.
+
+\smallskip\noindent\emph{Step 3: Assess results in context.}
+Each result card displays the matched passage text alongside the passage
+immediately before and after it. P03 observed that keyword hits alone were
+often not sufficient to determine relevance---``you have to go through the
+whole patent'' to understand whether a term was being used in the right
+sense. The neighboring passages eliminate most of that reading burden. For
+each card, the paragraph anchor (\texttt{[0042]}) is displayed, ready to be
+copied into the claim chart without further document lookup. This addresses
+the citation overhead P01 described: the overhead of manually recording
+``column and line number'' for granted patents is eliminated because the
+anchor is extracted at parse time.
+
+\smallskip\noindent\emph{Step 4: Iterative refinement.}
+If the initial results contain false positives (e.g., passages about static
+routing that happen to mention ``routing table''), the examiner narrows the
+query by adding a term without restarting:
+
+\begin{lstlisting}[caption={Narrowing by adding a required term.}]
+section:SPECIFICATION AND
+  (contains:"routing table" OR contains:"forwarding table")
+  AND contains:"dynamic"
+\end{lstlisting}
+
+\noindent The result set updates within 600ms. The examiner can see
+immediately whether the added constraint reduced the result set to something
+manageable or eliminated too many relevant passages, and can adjust
+accordingly. This tight iteration loop was absent from every tool P03,
+P05, and P09 described. P02 articulated the correct model: effective search
+``really involves appraising the art as you search for it, and refining
+your search based on that'' (Need~5). Our live refresh is a direct
+implementation of that observation.
+
 
 \subsection{The Document Abstraction}
 
-% TODO: Describe the Document -> Section -> Passage model and why this
-% hierarchy was chosen. Connect to Need 4: section-scoped queries directly
-% address the observed problem that keyword hits were not localized to
-% meaningful document divisions (specification vs. claims vs. abstract).
-%
-% Describe the Section types (TITLE, ABSTRACT, BACKGROUND, SUMMARY,
-% SPECIFICATION, CLAIMS, OTHER) and their legal significance.
-%
-% Describe passage-level anchors (paragraphId, claimNo, figureRefs) and
-% how they address the citation overhead P01 described for granted patents.
+\smallskip\noindent\textbf{The hierarchy.}
+Each patent document is parsed into a three-level hierarchy:
+\texttt{Document~$\to$~Section~$\to$~Passage}. A \texttt{Document} carries
+all extracted metadata: title, document identifier, filing and publication
+dates, application number, inventors, assignee, CPC classification codes,
+and domestic priority chain. A \texttt{Section} has a canonical type drawn
+from the set \{\textsc{title}, \textsc{abstract}, \textsc{background},
+\textsc{summary}, \textsc{specification}, \textsc{claims}, \textsc{other}\}
+and a human-readable heading string extracted from the document. A
+\texttt{Passage} is an atomic unit of text within a section: a
+blank-line-separated paragraph, a USPTO-numbered paragraph (\texttt{[0042]~...}),
+or an individual claim.
+
+This hierarchy was not chosen arbitrarily. During coding we noted that
+participants never described their information needs in terms of the full
+document; they consistently described them at the level of \emph{sections}
+(``I want hits in the spec, not the abstract'') and \emph{passages} (``I
+need to know which paragraph to cite''). The three-level model is a direct
+structural translation of how patent examiners reason about documents.
+
+\smallskip\noindent\textbf{Why section types are first-class.}
+Patent sections are not stylistic divisions; they carry distinct legal
+functions that every participant in our study treated as categorical. The
+\textsc{abstract} is explicitly excluded as prior art under 35 U.S.C.
+\S 102(b)(2)(B) in certain conditions; the \textsc{background} describes the
+problem the invention addresses; the \textsc{specification} (detailed
+description) is the primary locus of technical teaching and is what examiners
+cite when writing a rejection; the \textsc{claims} define the legally
+protected scope. P05 was explicit: they wanted hits ``in the background and
+description sections, not in the abstract or claims.'' No current tool
+surfaces results at this level of section specificity. Our model makes
+section type queryable as a first-class predicate.
+
+\smallskip\noindent\textbf{Passage-level anchors.}
+Each \texttt{Passage} optionally carries one of three anchor types. A
+\texttt{paragraphId} records the USPTO paragraph number (e.g.,\ \texttt{0042})
+for numbered paragraphs in post-2001 publications. A \texttt{claimNo}
+records the claim number for passages parsed from the claims section. A
+\texttt{figureRefs} list records any figure references that appear within
+the passage text. The \texttt{paragraphId} directly addresses the citation
+overhead P01 described: when writing an office action, examiners must record
+exactly where in a reference the evidence appears. For published applications,
+this means paragraph numbers; for granted patents, column and line numbers.
+P01 called this process manual and frustrating. By extracting and storing
+the anchor at parse time, our system can surface it on the result card
+without requiring the examiner to open the document.
+
 
 \subsection{The Query DSL}
 
-% TODO: Describe the DSL design and walk through example queries.
-% Use \lstlisting environments for inline examples. Suggested structure:
-%
-%   - Start with a motivating task drawn from a CI session (e.g., P05
-%     wanting hits only in BACKGROUND and SPECIFICATION, not ABSTRACT/CLAIMS).
-%   - Show the simplest query form: contains:"phrase"
-%   - Show section-scoped queries: section:SPECIFICATION AND contains:"normalizer task queue"
-%   - Show OR for synonym expansion (connected to Need 1):
-%       section:CLAIMS AND (contains:"virtual machine" OR contains:"hypervisor")
-%   - Show metadata filters for date/CPC:
-%       cpc:"G06F 9/5077" AND section:ABSTRACT
-%   - Show the full composability: multi-clause queries for a real claim element
-%
-% For each example, explain: what need it addresses, what the examiner had to
-% do before, what they can do now.
+The query language is a minimal composable DSL. The full grammar supports
+phrase containment, section type, paragraph anchor, CPC code, arbitrary
+metadata fields, and Boolean composition (\texttt{AND}, \texttt{OR},
+\texttt{NOT}) with parenthesized sub-expressions and standard Boolean
+precedence. Every predicate in the language was motivated by a specific
+observed need; we describe each with its motivation below.
 
-Here is an example of a query an examiner might write to surface passages
-in the claims or specification of any loaded document that discuss virtual
-machine resource allocation, without being overwhelmed by abstract-level hits:
+\smallskip\noindent\textbf{Content filtering (\texttt{contains:}).}
+The simplest query is a phrase containment check over all passages in all
+selected documents:
 
-\begin{lstlisting}[caption={Section-scoped query for claim mapping.}]
-section:SPECIFICATION AND
-  (contains:"virtual machine" OR contains:"hypervisor")
+\begin{lstlisting}[caption={Basic phrase search.}]
+contains:"prior art"
 \end{lstlisting}
 
-% TODO: Annotate what this returns: passage text, section type, paragraphId
-% or claimNo if present, neighboring context passages, match reasons.
-% Connect to Need 3 (claim mapping) and Need 4 (keyword localization).
+\noindent This is the direct analog of a keyword search in any existing tool,
+but with a critical difference: the result is a list of individual passages,
+not a ranked list of documents. The examiner sees where in the document the
+term appears without having to open anything.
+
+\smallskip\noindent\textbf{Section filtering (\texttt{section:}).}
+Adding a \texttt{section:} predicate restricts results to passages from a
+specific document section. This was the single most consistently requested
+capability across our study:
+
+\begin{lstlisting}[caption={Section-scoped containment query (Need 4).}]
+section:SPECIFICATION AND contains:"virtual machine migration"
+\end{lstlisting}
+
+\noindent The predicate accepts any canonical section type and is
+case-insensitive. P05 wanted hits ``in the background and description
+sections, not in the abstract or claims,'' and described the absence of this
+feature as something that ``makes no sense for what I actually need to find.''
+This predicate is the direct implementation of that need.
+
+\smallskip\noindent\textbf{Synonym expansion (\texttt{OR}).}
+Need~1 established that examiners must manually enumerate synonyms and
+run separate queries for each variant. The \texttt{OR} operator allows the
+full synonym set to be expressed in a single query:
+
+\begin{lstlisting}[caption={OR for synonym expansion across a corpus (Need 1).}]
+section:CLAIMS AND
+  (contains:"virtual machine" OR contains:"hypervisor"
+   OR contains:"guest operating system")
+\end{lstlisting}
+
+\noindent This returns all claim passages from all selected documents that
+mention any of the three terms. P04 described maintaining a shared synonym
+crosswalk; this query structure makes that crosswalk executable rather than
+just a reference document, and applies it across a corpus in one step.
+
+\smallskip\noindent\textbf{Negation (\texttt{NOT}).}
+The \texttt{NOT} operator excludes passages from the result set. A practical
+use case is filtering the introductory boilerplate paragraph that many
+specifications begin with, which often contains broad terminology that
+matches almost any query:
+
+\begin{lstlisting}[caption={NOT to exclude boilerplate preamble.}]
+section:SPECIFICATION AND contains:"network interface"
+  AND NOT paragraph:1
+\end{lstlisting}
+
+\smallskip\noindent\textbf{Paragraph anchoring (\texttt{paragraph:}).}
+The \texttt{paragraph:} predicate retrieves a specific numbered passage by
+its USPTO paragraph anchor. This is useful when an examiner returns to a
+document in a subsequent session and needs to pull up a known-relevant
+paragraph without re-reading the specification:
+
+\begin{lstlisting}[caption={Pinpoint retrieval by paragraph anchor (Need 4).}]
+section:SPECIFICATION AND paragraph:42
+\end{lstlisting}
+
+\noindent This also enables cross-document comparison: an examiner who has
+noted paragraph \texttt{[0042]} as relevant in one reference can query the
+same anchor across other loaded documents to see whether they share
+structurally similar placement for the same concept.
+
+\smallskip\noindent\textbf{Metadata filtering (\texttt{meta.} and \texttt{cpc:}).}
+CPC classification codes and arbitrary metadata fields narrow the document
+scope before content is examined. This reflects the corpus-scoping workflow
+that multiple participants described: they first constrain the set of
+candidate documents by classification, then search their content.
+
+\begin{lstlisting}[caption={CPC scope then section filter.}]
+cpc:"H04L 45/00" AND section:SPECIFICATION
+  AND contains:"link-state advertisement"
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Date constraint to enforce admissibility (Need 2).}]
+meta.filingDate:<2019-06-01
+  AND section:CLAIMS AND contains:"neural interface"
+\end{lstlisting}
+
+\noindent The date predicate directly addresses Need~2. P05 described
+completing an entire office action on a reference that postdated the
+application's effective filing date, requiring a complete redo. P06 called
+the absence of reliable date filtering ``definitely a very good fix that can
+be done.''
+
+\smallskip\noindent\textbf{Full composability.}
+All predicates compose with arbitrary nesting. The following query reflects
+the kind of compound search P03 assembled across multiple tool sessions
+during our study---expressed here in a single executable string that can be
+saved, shared, and rerun:
+
+\begin{lstlisting}[caption={Compound query for a single claim element.}]
+meta.filingDate:<2018-03-15 AND section:SPECIFICATION AND
+  (contains:"routing table" OR contains:"forwarding table"
+   OR contains:"FIB")
+  AND contains:"dynamic"
+\end{lstlisting}
+
+\noindent Each result card shows the matched passage text, the section type
+and heading, the paragraph or claim anchor if present, the immediately
+preceding and following passages for context, and a match-reason string that
+names each predicate that matched (e.g., \texttt{section:SPECIFICATION},
+\texttt{contains:"routing table"}). The examiner can use this string directly
+as a citation trace in a claim chart, addressing the absence of integrated
+claim-mapping support identified in Need~3.
+
 
 \subsection{Key Design Decisions}
 
-% TODO: Discuss the three or four most important design decisions and the
-% need-finding observations that drove them. Suggested decisions:
-%
-%   1. Passage-level granularity (not document-level) with neighboring context.
-%      -> Driven by Need 4: examiners had to "go through the whole patent"
-%         to find where a keyword appeared in context.
-%
-%   2. Explicit section types as first-class filter predicates, not metadata.
-%      -> Driven by Need 4: P05 explicitly wanted hits in background/spec,
-%         not in the abstract; section type is a legally meaningful distinction.
-%
-%   3. Composable AND/OR rather than a ranked retrieval model.
-%      -> Driven by Need 5: examiners described iterative, Boolean-style
-%         refinement as their actual strategy; ranked retrieval doesn't let
-%         them control which dimensions they're refining.
-%
-%   4. Textual DSL (not a GUI filter panel) to enable query reuse and sharing.
-%      -> Driven by Need 3: if queries are first-class text artifacts, they
-%         can be saved, shared across cases, and versioned alongside a
-%         claim chart.
+\smallskip\noindent\textbf{Decision 1: Passage granularity with neighboring context.}
+The most fundamental question in designing a retrieval tool is the unit of
+retrieval. Existing tools return documents; sentence-level tools exist in
+academic NLP but are unfamiliar to practitioners. We chose the passage
+because it corresponds to how patent documents are legally structured and
+how examiners described their information needs: they wanted ``where in the
+patent'' a term appeared, not just ``which patent.''
+
+However, our analysis sessions surfaced a secondary problem: a passage
+clipped from its context can be misleading or uninterpretable. P03 was
+explicit that ``you have to go through the whole patent'' in part because the
+keyword match by itself does not reveal whether the surrounding text confirms
+or contradicts the relevance judgment. We resolved this by including the
+immediately preceding and following passages in every result card. This adds
+enough local context for a relevance judgment without requiring the examiner
+to load the full document. The tradeoff---longer result cards, more
+scrolling---was acceptable because it directly replaces the longer task of
+opening each document to read around each hit.
+
+\smallskip\noindent\textbf{Decision 2: Section type as a predicate with a
+closed vocabulary, not a metadata field.}
+An early design used a generic \texttt{meta.} namespace for all document
+properties, which would have encoded section type as
+\texttt{meta.sectionType:"SPECIFICATION"}. We changed this to a dedicated
+\texttt{section:} predicate with a closed vocabulary after analyzing how
+participants talked about sections during the CI sessions.
+
+Participants never referred to sections by arbitrary heading text; they
+referred to them by legal role. P05 said ``the background and description
+sections,'' not ``the section whose heading contains 'Detailed Description.'''
+This suggested that the model needed a closed, normalized vocabulary of legal
+section types rather than a string-match against headings---particularly
+because heading text varies across issuers and publication formats (e.g.,
+``Detailed Description of the Preferred Embodiments'' vs. ``Detailed
+Description''). Normalizing to canonical types at parse time and exposing
+them through a dedicated predicate syntax reflects the conceptual model
+participants actually held.
+
+\smallskip\noindent\textbf{Decision 3: Boolean composition over ranked retrieval.}
+We made an early decision to build a Boolean filter model rather than a
+ranked retrieval model (e.g., TF-IDF, BM25, or embedding similarity). This
+was one of the most consequential choices in the design and was almost
+entirely driven by Need~5.
+
+P02 described effective search as ``appraising the art as you search for it,
+and refining your search based on that.'' This articulates a specific
+epistemic structure: the examiner's understanding of what they are looking for
+evolves as they look. Ranked retrieval systems assume the query is fixed and
+the model's job is to order the corpus against it; they do not expose
+\emph{why} a document ranked where it did, making it opaque which dimension
+to refine when results are wrong. P09 described the USPTO similarity search
+as producing 300 references ``of which 2 or 3 are actually useful,'' with no
+clear signal about what to adjust. P06 identified the core problem: the
+model has no awareness of domain context, so a search for ``user interface''
+in a medical device application returns banking software results.
+
+A Boolean DSL is transparent by design. Every predicate either matches or
+does not, and the match-reason string on each result card names exactly which
+predicates fired. When a result is missing, the examiner can add an
+\texttt{OR} clause; when there are too many false positives, they can add an
+\texttt{AND} constraint. Each edit is a one-token change with an immediately
+visible effect. This transparency is precisely what makes it compatible with
+the iterative appraise-and-refine strategy that participants described as
+their actual method.
+
+\smallskip\noindent\textbf{Decision 4: Textual DSL over a GUI filter panel.}
+We considered implementing the same predicate semantics as a graphical filter
+panel with dropdowns, checkboxes, and date pickers. The textual DSL won out
+for reasons that came directly from the CI sessions.
+
+First, patent examiners already write Boolean query strings as a core job
+skill. P04, P07, and P10 each described constructing Boolean queries as
+standard practice. A textual DSL is a familiar interaction mode for this
+population; a filter panel would introduce a new interaction paradigm for
+examiners who already think in terms of query strings.
+
+Second, and more importantly, a textual query is a first-class persistent
+artifact in a way that a GUI selection state is not. P01 maintained a Word
+table for claim mapping; P03 used inline bullet points; P05 copied claims
+into a Word document. All of these are workarounds for the absence of
+integrated documentation support (Need~3). A query string can be pasted
+directly into a claim chart as a citation trace: ``found via
+\texttt{section:SPECIFICATION AND contains:"routing table"}, paragraph
+[0042].'' A GUI filter panel cannot be recorded that way. The DSL makes
+queries \emph{shareable}---with colleagues, across cases, and over time---in
+a way that a stateful UI control does not.
+
+Third, the live debounce refresh means that typing in the text box already
+behaves like a responsive filter panel: each character edit produces updated
+results within 600ms. The perceived interactivity difference between a
+textual DSL and a GUI panel is therefore small, while the artifact value of
+the textual form is substantially higher.
 
 
 %% ====================================================================

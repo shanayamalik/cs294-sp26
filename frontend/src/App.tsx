@@ -157,7 +157,10 @@ export default function App() {
     <main className="page">
       <section className="panel">
         <h1>Patent Query Prototype</h1>
-        <p className="subtitle">Document → Section → Passage querying with a minimal DSL.</p>
+        <p className="subtitle">
+          Document → Section → Passage querying with a minimal DSL. {" "}
+          <a href="#claim-chart-demo">Try claim chart demo →</a>
+        </p>
 
         <form onSubmit={onSubmit} className="queryForm">
           <fieldset className="documentPicker">

@@ -27,3 +27,13 @@ def test_parse_metadata_comparison_query() -> None:
     assert query.filters[0].field == "filingDate"
     assert query.filters[0].operator == "lt"
     assert query.filters[0].value == "2018-03-15"
+
+
+def test_parse_metadata_contains_query() -> None:
+    query = parse_dsl('meta.assignee.name:~"Google"')
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "metadata"
+    assert query.filters[0].field == "assignee.name"
+    assert query.filters[0].operator == "contains"
+    assert query.filters[0].value == "Google"

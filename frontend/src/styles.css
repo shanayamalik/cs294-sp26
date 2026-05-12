@@ -190,9 +190,25 @@ button:disabled {
 .resultCard header {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.copyCitationButton {
+  margin-left: auto;
+  border: 1px solid #d8c7a7;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: var(--muted);
+  padding: 0.22rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.copyCitationButton:hover {
+  background: #f6ead0;
 }
 
 .resultCard strong {
@@ -231,4 +247,123 @@ button:disabled {
   padding: 0.6rem;
   border-radius: 8px;
   background: #f6f1e4;
+}
+
+.chartDemoPage {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.chartDemoIntro {
+  margin-bottom: 1rem;
+}
+
+.chartDemoLayout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.chartDemoColumn {
+  min-width: 0;
+}
+
+.chartEvidenceList {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.chartEvidenceCard {
+  border: 1px solid #ddd1ba;
+  border-radius: 8px;
+  background: #fffcf6;
+  padding: 0.8rem;
+}
+
+.chartEvidenceMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+  color: var(--muted);
+}
+
+.chartActionButton,
+.chartLinkButton {
+  border: 1px solid #d8c7a7;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: var(--muted);
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chartActionButton:hover,
+.chartLinkButton:hover {
+  background: #f6ead0;
+}
+
+.chartWorkspaceHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.chartTable {
+  display: grid;
+  grid-template-columns: 120px minmax(200px, 1fr) minmax(180px, 240px) minmax(260px, 1.3fr);
+  border: 1px solid #ddd1ba;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chartTableHeader {
+  background: #f6f1e4;
+  padding: 0.7rem;
+  font-weight: 700;
+  border-bottom: 1px solid #ddd1ba;
+}
+
+.chartCell {
+  padding: 0.7rem;
+  border-top: 1px solid #eee2ca;
+  min-width: 0;
+}
+
+.chartTextarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #ddd1ba;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font: inherit;
+  background: white;
+}
+
+.chartExcerpt {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
+  .chartDemoLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .chartTable {
+    grid-template-columns: 1fr;
+  }
+
+  .chartTableHeader {
+    display: none;
+  }
+
+  .chartCell {
+    border-top: 1px solid #ddd1ba;
+  }
 }

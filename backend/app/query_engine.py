@@ -122,6 +122,8 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
             "lte": "<=",
             "gt": ">",
             "gte": ">=",
+            "contains": "~",
+            "startswith": "^",
         }[query_filter.operator]
         return f'{prefix}meta.{query_filter.field}:{operator}"{query_filter.value}"'
 
@@ -283,6 +285,12 @@ def _scalar_matches(value, operator: str, expected: str) -> bool:
         return False
 
     actual_text = str(value)
+    if operator == "contains":
+        return _normalize_scalar(expected) in _normalize_scalar(actual_text)
+
+    if operator == "startswith":
+        return _normalize_scalar(actual_text).startswith(_normalize_scalar(expected))
+
     if operator == "eq":
         actual = _normalize_scalar(actual_text)
         target = _normalize_scalar(expected)

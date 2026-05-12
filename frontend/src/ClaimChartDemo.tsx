@@ -1,68 +1,24 @@
-import { Fragment, useMemo, useState } from "react";
-
-type EvidenceItem = {
-  id: string;
-  claim: string;
-  reference: string;
-  location: string;
-  excerpt: string;
-  reason: string;
-};
-
-const EVIDENCE_LIBRARY: EvidenceItem[] = [
-  {
-    id: "e1",
-    claim: "Claim 1",
-    reference: "Alicherry et al. (US 20130031559 A1)",
-    location: "¶[0038]",
-    excerpt:
-      "The CAS 140 is configured to receive a user VM request requesting provisioning of VMs within cloud environment 110.",
-    reason: "Supports the claim element about searching / requesting physical resources in a cloud environment.",
-  },
-  {
-    id: "e2",
-    claim: "Claim 1",
-    reference: "Alicherry et al. (US 20130031559 A1)",
-    location: "¶[0041]",
-    excerpt:
-      "The CAS 140 may be configured to determine assignment of requested VMs to physical resources of cloud environment 110.",
-    reason: "Shows assignment to physical resources and supports the examiner's mapping rationale.",
-  },
-  {
-    id: "e3",
-    claim: "Claim 1",
-    reference: "Shao et al. (US 20130060928 A1)",
-    location: "¶[0034]",
-    excerpt:
-      "Cloud service requesters such as web service, application or user can access the cloud computing services and/or resources.",
-    reason: "Used as secondary support for the access / user element.",
-  },
-];
-
-type ChartRow = EvidenceItem & {
-  elementText: string;
-  notes: string;
-};
+import { Fragment, useEffect, useState } from "react";
+import { ChartRow, loadChartRows, saveChartRows } from "./claimChartStorage";
 
 export default function ClaimChartDemo() {
-  const [rows, setRows] = useState<ChartRow[]>([]);
+  const [rows, setRows] = useState<ChartRow[]>(() => loadChartRows());
   const [copied, setCopied] = useState(false);
 
-  const remainingEvidence = useMemo(
-    () => EVIDENCE_LIBRARY.filter((item) => !rows.some((row) => row.id === item.id)),
-    [rows]
-  );
+  useEffect(() => {
+    saveChartRows(rows);
+  }, [rows]);
 
-  function addRow(item: EvidenceItem) {
-    setRows((current) => [
-      ...current,
-      {
-        ...item,
-        elementText: "",
-        notes: item.reason,
-      },
-    ]);
-  }
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === null || event.key === "claim-chart-rows") {
+        setRows(loadChartRows());
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   function removeRow(id: string) {
     setRows((current) => current.filter((row) => row.id !== id));
@@ -93,10 +49,10 @@ export default function ClaimChartDemo() {
 
       <section className="chartDemoLayout">
         <div className="panel chartDemoColumn">
-          <h2>Available Evidence</h2>
-          <p className="subtitle">Mock passages based on the examiner-created chart you shared.</p>
+          <h2>Saved Evidence</h2>
+          <p className="subtitle">Results added from the main search page appear here and stay editable in this separate workspace.</p>
           <div className="chartEvidenceList">
-            {remainingEvidence.map((item) => (
+            {rows.map((item) => (
               <article key={item.id} className="chartEvidenceCard">
                 <div className="chartEvidenceMeta">
                   <strong>{item.reference}</strong>
@@ -104,12 +60,12 @@ export default function ClaimChartDemo() {
                 </div>
                 <p><b>Excerpt:</b> {item.excerpt}</p>
                 <p><b>Why it matters:</b> {item.reason}</p>
-                <button type="button" className="chartActionButton" onClick={() => addRow(item)}>
-                  Add to chart
+                <button type="button" className="chartActionButton" onClick={() => removeRow(item.id)}>
+                  Remove from chart
                 </button>
               </article>
             ))}
-            {remainingEvidence.length === 0 ? <p className="subtitle">All mock evidence items have been added.</p> : null}
+            {rows.length === 0 ? <p className="subtitle">No saved evidence yet. Add passages from search results with the new Add to chart action.</p> : null}
           </div>
         </div>
 
@@ -132,8 +88,8 @@ export default function ClaimChartDemo() {
 
             {rows.map((row) => (
               <Fragment key={row.id}>
-                <div key={`${row.id}-claim`} className="chartCell">{row.claim}</div>
-                <div key={`${row.id}-element`} className="chartCell">
+                <div className="chartCell">{row.claim}</div>
+                <div className="chartCell">
                   <textarea
                     className="chartTextarea"
                     rows={5}
@@ -142,14 +98,14 @@ export default function ClaimChartDemo() {
                     placeholder="Paste or type the claim element text here"
                   />
                 </div>
-                <div key={`${row.id}-reference`} className="chartCell">
+                <div className="chartCell">
                   <strong>{row.reference}</strong>
                   <div>{row.location}</div>
                   <button type="button" className="chartLinkButton" onClick={() => removeRow(row.id)}>
                     Remove
                   </button>
                 </div>
-                <div key={`${row.id}-notes`} className="chartCell">
+                <div className="chartCell">
                   <p className="chartExcerpt">{row.excerpt}</p>
                   <textarea
                     className="chartTextarea"

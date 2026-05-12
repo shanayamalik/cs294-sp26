@@ -1,4 +1,5 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChartRow, upsertChartRow } from "./claimChartStorage";
 
 type DocumentSummary = {
   id: string;
@@ -38,6 +39,7 @@ export default function App() {
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
   const [submittedQueryText, setSubmittedQueryText] = useState("");
   const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
+  const [savedToChartKey, setSavedToChartKey] = useState<string | null>(null);
 
   useEffect(() => {
     void loadDocuments();
@@ -86,6 +88,7 @@ export default function App() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedCitationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedToChartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -131,6 +134,20 @@ export default function App() {
       copiedCitationTimeoutRef.current = setTimeout(() => setCopiedCitationKey(null), 1600);
     } catch {
       setError("Failed to copy citation.");
+    }
+  }
+
+  function addMatchToChart(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
+    try {
+      const chartRow = createChartRow(match, documentTitle);
+      upsertChartRow(chartRow);
+
+      const matchKey = `${match.documentId}:${match.passageId}`;
+      setSavedToChartKey(matchKey);
+      if (savedToChartTimeoutRef.current) clearTimeout(savedToChartTimeoutRef.current);
+      savedToChartTimeoutRef.current = setTimeout(() => setSavedToChartKey(null), 1600);
+    } catch {
+      setError("Failed to add result to claim chart.");
     }
   }
 
@@ -244,6 +261,13 @@ export default function App() {
                   >
                     {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
                   </button>
+                  <button
+                    type="button"
+                    className="copyCitationButton"
+                    onClick={() => addMatchToChart(match, documentTitle)}
+                  >
+                    {savedToChartKey === `${match.documentId}:${match.passageId}` ? "Added to chart" : "Add to chart"}
+                  </button>
                 </header>
 
                 <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
@@ -277,6 +301,21 @@ export default function App() {
 function formatCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
   const anchor = match.paragraphId != null ? `¶[${match.paragraphId}]` : match.claimNo != null ? `Claim ${match.claimNo}` : `Passage ${match.passageIndex}`;
   return `${documentTitle} (${match.documentId}), ${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${anchor}`;
+}
+
+function createChartRow(match: QueryResponse["result"]["matches"][number], documentTitle: string): ChartRow {
+  const location = match.paragraphId != null ? `¶[${match.paragraphId}]` : match.claimNo != null ? `Claim ${match.claimNo}` : `Passage ${match.passageIndex}`;
+
+  return {
+    id: `${match.documentId}:${match.passageId}`,
+    claim: match.claimNo != null ? `Claim ${match.claimNo}` : "Claim ?",
+    reference: `${documentTitle} (${match.documentId})`,
+    location,
+    excerpt: match.passageText,
+    reason: match.reasons.join("; "),
+    elementText: "",
+    notes: `${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${location}`,
+  };
 }
 
 function extractHighlightTerms(queryText: string) {

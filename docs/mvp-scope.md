@@ -40,7 +40,11 @@
 - Frontend document picker supports searching across multiple documents
 - Frontend result cards show which document each hit came from
 - Frontend result cards show paragraph / claim anchor badges when available
+- Frontend result cards support `Copy citation` for lightweight claim-mapping handoff
+- Frontend result cards support `Add to chart`, which sends live results into the separate claim-chart demo workspace
 - Frontend uses 600ms debounced live refresh so result sets update during query refinement
+- Separate `#claim-chart-demo` page provides an isolated claim-chart workspace with editable rows and TSV export
+- Claim-chart demo persists saved rows in the browser so the search page and chart page stay connected without merging the workflows
 - Demo corpus includes parsed sample patent data and multiple USPTO patent PDFs
 - Supported demo queries are captured in [example-queries.md](example-queries.md)
 
@@ -53,6 +57,12 @@
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching for string metadata~~ **done**
   - remaining work: richer assignee / inventor exploration, additional metadata aliases, and stronger admissibility-oriented date / priority handling
+- Claim-mapping support built on top of retrieved passages
+  - ~~copy citation button~~ **done**
+  - ~~separate claim-chart demo page~~ **done**
+  - remaining work: stronger chart structure, better claim-element editing, and export formats closer to real examiner charts
+- shanaya (me) wouldlike to do UI polish / visual redesign
+  - I will do these on a separate branch so u cans see if u like it and find it aesthetic before we merge
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
   - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 
   as well as avoid needlessly loading unnecessary documents to prevent wasted time querying them
@@ -73,28 +83,6 @@
   - some feature overlaps can be fine due to enhancements from our interface vs USPTO search interface (passage-level 
   vs document-level search) and difference in part of workflow (find relevant potentially relevant docs -> determine 
   relevance of docs and find specific pieces of evidence)
-
-
-## Highest-Value Remaining Work by User Need
-
-1. Claim-mapping support built on top of retrieved passages
-  - Most directly addresses Need 3
-  - Examples: copy citation button, exportable citation trace, structured claim-chart workspace
-
-2. Query authoring support for iterative refinement
-  - Most directly addresses Need 5
-  - Examples: DSL cheat sheet, saved query snippets, example library in the UI
-
-3. More metadata filters tied to examiner scoping workflows
-  - Addresses Need 1 and Need 2 indirectly by making corpus narrowing easier before manual synonym expansion
-  - Examples: richer assignee / inventor / CPC exploration, additional date operators, priority metadata exposure
-
-4. Corpus-scale loading and USPTO integration
-  - Important for realism and workflow fit, but less central to the paper's strongest current claims than the items above
-
-5. Richer admissibility logic beyond a raw filing-date comparison
-  - Strongly tied to Need 2, but more legally involved than the current MVP filter
-  - Examples: effective-priority handling, domestic priority chain reasoning, publication-vs-filing disambiguation
 
 
 ### Stretchy Goals

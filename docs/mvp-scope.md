@@ -55,11 +55,8 @@
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
-  - ~~substring / prefix matching for string metadata~~ **done**
-  - direct name aliases for inventor / assignee exploration are now supported
-  - date convenience aliases are now supported for publication / filing / application filing date access
-  - derived priority and effective/admissibility date helpers are now supported
-  - remaining work: richer inventor / assignee facets beyond name lookup and stronger legal framing around admissibility-oriented reasoning beyond the current effective-date proxy
+  - ~~substring / prefix matching, direct inventor / assignee name aliases, date convenience aliases, and derived priority / effective / admissibility date helpers~~ **done**
+  - remaining work: richer inventor / assignee facets beyond name lookup and any future deeper legal refinement beyond the current helper-based date model
 - Claim-mapping support built on top of retrieved passages
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**

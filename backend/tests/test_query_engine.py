@@ -218,3 +218,74 @@ def test_execute_query_inventor_and_assignee_name_aliases() -> None:
 
     assert execute_query(fixture, assignee_query).totalMatches == 1
     assert execute_query(fixture, inventor_query).totalMatches == 1
+
+
+def test_execute_query_priority_and_admissibility_helpers() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            filingDate="2011-07-19",
+            applicationFilingDate="20110719",
+            domesticPriority=["us-provisional-application US 61492708 20110602"],
+        ),
+        sections=[
+            Section(
+                type="ABSTRACT",
+                title="Abstract",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="ABSTRACT",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    priority_query = Query(filters=[MetadataFilter(kind="metadata", field="priorityDate", operator="lt", value="2011-07-01")])
+    effective_query = Query(filters=[MetadataFilter(kind="metadata", field="effectiveDate", operator="lt", value="2011-07-01")])
+    admissibility_query = Query(filters=[MetadataFilter(kind="metadata", field="admissibilityDate", operator="lt", value="2011-07-01")])
+
+    assert execute_query(fixture, priority_query).totalMatches == 1
+    assert execute_query(fixture, effective_query).totalMatches == 1
+    assert execute_query(fixture, admissibility_query).totalMatches == 1
+
+
+def test_execute_query_effective_date_falls_back_without_priority_claim() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            filingDate="2011-07-19",
+            applicationFilingDate="20110719",
+        ),
+        sections=[
+            Section(
+                type="ABSTRACT",
+                title="Abstract",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="ABSTRACT",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    effective_query = Query(filters=[MetadataFilter(kind="metadata", field="effectiveDate", operator="eq", value="2011-07-19")])
+
+    assert execute_query(fixture, effective_query).totalMatches == 1

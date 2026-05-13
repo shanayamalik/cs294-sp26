@@ -57,3 +57,13 @@ def test_parse_metadata_date_convenience_alias_query() -> None:
     assert query.filters[0].field == "appDate"
     assert query.filters[0].operator == "eq"
     assert query.filters[0].value == "20110719"
+
+
+def test_parse_metadata_priority_helper_query() -> None:
+    query = parse_dsl("meta.priorityDate:<2011-07-01")
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "metadata"
+    assert query.filters[0].field == "priorityDate"
+    assert query.filters[0].operator == "lt"
+    assert query.filters[0].value == "2011-07-01"

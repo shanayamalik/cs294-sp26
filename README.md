@@ -18,6 +18,7 @@ We design a programming-oriented document analysis environment where patent docu
   - `meta.KEY < VALUE`, `<=`, `>`, `>=` for comparable metadata such as filing dates
   - `meta.KEY ~ VALUE` / `^ VALUE` for substring and prefix matching on string metadata such as assignee or inventor names
   - selected metadata aliases such as `meta.pubDate`, `meta.published`, `meta.appNo`, `meta.filing`, `meta.filed`, `meta.appDate`, `meta.appFiled`, `meta.assigneeName`, and `meta.inventorName`
+  - derived metadata helpers such as `meta.priorityDate`, `meta.effectiveDate`, and `meta.admissibilityDate`
   - `cpc == CODE` (optional)
   - `contains("phrase")`
   - `paragraph == NNNN` (optional pinpoint drill-down)
@@ -29,6 +30,8 @@ We design a programming-oriented document analysis environment where patent docu
   - `meta.pubDate:>=2019-01-01`
   - `meta.published:>=2019-01-01`
   - `meta.appDate:20110719`
+  - `meta.priorityDate:<2011-07-01`
+  - `meta.effectiveDate:<2011-07-01`
   - `meta.assigneeName:~"Google"`
   - `meta.assignee.name:~"Google"`
   - `contains:"server" OR contains:"network"`
@@ -95,6 +98,7 @@ section:SUMMARY AND contains:"normalizer task queue"
 - Result cards now display paragraph / claim anchors (`¶[N]`, `Claim N`) when available
 - Filing-date comparison filters now supported for comparable metadata fields such as `meta.filingDate:<2018-03-15`
 - Metadata exploration supports substring and prefix matching such as `meta.assignee.name:~"Google"`
+- Derived priority and effective-date helpers now supported through `meta.priorityDate`, `meta.effectiveDate`, and `meta.admissibilityDate`
 - PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
 - `npm run dev:backend` fixed to use venv python
 - Frontend build config cleaned up so TypeScript no longer emits stale `.js` / `.d.ts` files into `frontend/src`

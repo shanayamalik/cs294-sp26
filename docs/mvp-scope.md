@@ -58,7 +58,8 @@
   - ~~substring / prefix matching for string metadata~~ **done**
   - direct name aliases for inventor / assignee exploration are now supported
   - date convenience aliases are now supported for publication / filing / application filing date access
-  - remaining work: richer inventor / assignee facets beyond name lookup, stronger priority-date support, and more admissibility-oriented date / priority handling
+  - derived priority and effective/admissibility date helpers are now supported
+  - remaining work: richer inventor / assignee facets beyond name lookup and stronger legal framing around admissibility-oriented reasoning beyond the current effective-date proxy
 - Claim-mapping support built on top of retrieved passages
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**

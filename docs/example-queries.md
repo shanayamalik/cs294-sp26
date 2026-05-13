@@ -20,3 +20,6 @@
 18. `meta.inventorName:^"Anderson" AND contains:"virtual machine"`
 19. `meta.published:>=2019-01-01 AND section:ABSTRACT`
 20. `meta.appDate:20110719`
+21. `meta.priorityDate:<2011-07-01 AND section:ABSTRACT`
+22. `meta.effectiveDate:<2011-07-01 AND section:ABSTRACT`
+23. `meta.admissibilityDate:<2011-07-01 AND section:ABSTRACT`

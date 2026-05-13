@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 
 from .models import (
@@ -32,10 +33,16 @@ METADATA_FIELD_ALIASES = {
     "application_no": "applicationNo",
     "application_number": "applicationNo",
     "applicationdate": "applicationFilingDate",
+    "admissibility": "admissibilityDate",
+    "admissibility_date": "admissibilityDate",
+    "admissibilitydate": "admissibilityDate",
     "assignee_name": "assignee.name",
     "assigneename": "assignee.name",
     "document_id": "documentId",
     "docid": "documentId",
+    "effective": "effectiveDate",
+    "effective_date": "effectiveDate",
+    "effectivedate": "effectiveDate",
     "filing": "filingDate",
     "filed": "filingDate",
     "fileddate": "filingDate",
@@ -51,6 +58,9 @@ METADATA_FIELD_ALIASES = {
     "publisheddate": "publicationDate",
     "publication_date": "publicationDate",
     "publicationdate": "publicationDate",
+    "priority": "priorityDate",
+    "priority_date": "priorityDate",
+    "prioritydate": "priorityDate",
     "source_file": "sourceFile",
     "us_class_current": "usClassCurrent",
 }
@@ -232,6 +242,11 @@ def _metadata_matches(document: Document, raw_field: str, operator: str, expecte
 def _metadata_value(document: Document, raw_field: str):
     value = document.metadata.model_dump()
     resolved_field = _resolve_metadata_field_path(raw_field)
+
+    derived_value = _derived_metadata_value(document, resolved_field)
+    if derived_value is not None:
+        return derived_value
+
     for part in resolved_field.split("."):
         field = _metadata_field_name(part)
         if isinstance(value, dict):
@@ -255,6 +270,55 @@ def _metadata_value(document: Document, raw_field: str):
         return None
 
     return value
+
+
+def _derived_metadata_value(document: Document, resolved_field: str):
+    if resolved_field == "priorityDate":
+        return _derived_priority_date(document)
+
+    if resolved_field in {"effectiveDate", "admissibilityDate"}:
+        return _derived_effective_date(document)
+
+    return None
+
+
+def _derived_priority_date(document: Document) -> str | None:
+    priorities = document.metadata.domesticPriority or []
+    priority_dates: list[date] = []
+
+    for entry in priorities:
+        if not isinstance(entry, str):
+            continue
+
+        for match in re.findall(r"\b\d{8}\b", entry):
+            parsed = _parse_date(match)
+            if parsed is not None:
+                priority_dates.append(parsed)
+
+    if not priority_dates:
+        return None
+
+    return min(priority_dates).isoformat()
+
+
+def _derived_effective_date(document: Document) -> str | None:
+    for candidate in (
+        _derived_priority_date(document),
+        _normalize_date_text(document.metadata.applicationFilingDate),
+        _normalize_date_text(document.metadata.filingDate),
+    ):
+        if candidate is not None:
+            return candidate
+
+    return None
+
+
+def _normalize_date_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    parsed = _parse_date(value)
+    return parsed.isoformat() if parsed is not None else None
 
 
 def _resolve_metadata_field_path(raw_field: str) -> str:

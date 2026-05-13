@@ -169,11 +169,52 @@ def test_execute_query_metadata_aliases() -> None:
     )
 
     publication_query = Query(filters=[MetadataFilter(kind="metadata", field="pubDate", operator="gte", value="2019-01-01")])
+    publication_convenience_query = Query(filters=[MetadataFilter(kind="metadata", field="published", operator="gte", value="2019-01-01")])
     application_query = Query(filters=[MetadataFilter(kind="metadata", field="appNo", operator="eq", value="12/345678")])
+    filing_convenience_query = Query(filters=[MetadataFilter(kind="metadata", field="filing", operator="lt", value="2018-03-15")])
     filing_query = Query(filters=[MetadataFilter(kind="metadata", field="filed", operator="lt", value="2018-03-15")])
+    app_date_query = Query(filters=[MetadataFilter(kind="metadata", field="appDate", operator="eq", value="20110719")])
     app_filed_query = Query(filters=[MetadataFilter(kind="metadata", field="appFiled", operator="eq", value="20110719")])
 
     assert execute_query(fixture, publication_query).totalMatches == 1
+    assert execute_query(fixture, publication_convenience_query).totalMatches == 1
     assert execute_query(fixture, application_query).totalMatches == 1
+    assert execute_query(fixture, filing_convenience_query).totalMatches == 1
     assert execute_query(fixture, filing_query).totalMatches == 1
+    assert execute_query(fixture, app_date_query).totalMatches == 1
     assert execute_query(fixture, app_filed_query).totalMatches == 1
+
+
+def test_execute_query_inventor_and_assignee_name_aliases() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            inventors=[{"nameAndCity": "Anderson; Evan K. Seattle", "country": "US"}],
+            assignee={"name": "Google LLC", "city": "Mountain View"},
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    assignee_query = Query(filters=[MetadataFilter(kind="metadata", field="assigneeName", operator="contains", value="Google")])
+    inventor_query = Query(filters=[MetadataFilter(kind="metadata", field="inventorName", operator="startswith", value="Anderson")])
+
+    assert execute_query(fixture, assignee_query).totalMatches == 1
+    assert execute_query(fixture, inventor_query).totalMatches == 1

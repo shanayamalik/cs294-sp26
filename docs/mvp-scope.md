@@ -56,7 +56,9 @@
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching for string metadata~~ **done**
-  - remaining work: richer assignee / inventor exploration, additional metadata aliases, and stronger admissibility-oriented date / priority handling
+  - direct name aliases for inventor / assignee exploration are now supported
+  - date convenience aliases are now supported for publication / filing / application filing date access
+  - remaining work: richer inventor / assignee facets beyond name lookup, stronger priority-date support, and more admissibility-oriented date / priority handling
 - Claim-mapping support built on top of retrieved passages
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**

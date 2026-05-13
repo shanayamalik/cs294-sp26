@@ -24,19 +24,33 @@ from .models import (
 
 METADATA_FIELD_ALIASES = {
     "appfiled": "applicationFilingDate",
+    "appfileddate": "applicationFilingDate",
     "appno": "applicationNo",
+    "appdate": "applicationFilingDate",
     "application_filed": "applicationFilingDate",
     "application_filing_date": "applicationFilingDate",
     "application_no": "applicationNo",
     "application_number": "applicationNo",
+    "applicationdate": "applicationFilingDate",
+    "assignee_name": "assignee.name",
+    "assigneename": "assignee.name",
     "document_id": "documentId",
     "docid": "documentId",
+    "filing": "filingDate",
     "filed": "filingDate",
+    "fileddate": "filingDate",
     "filing_date": "filingDate",
+    "filingdate": "filingDate",
     "ingested_at": "ingestedAt",
+    "inventor_name": "inventors.nameAndCity",
+    "inventorname": "inventors.nameAndCity",
+    "publication": "publicationDate",
     "pubdate": "publicationDate",
     "pub_date": "publicationDate",
+    "published": "publicationDate",
+    "publisheddate": "publicationDate",
     "publication_date": "publicationDate",
+    "publicationdate": "publicationDate",
     "source_file": "sourceFile",
     "us_class_current": "usClassCurrent",
 }
@@ -217,7 +231,8 @@ def _metadata_matches(document: Document, raw_field: str, operator: str, expecte
 
 def _metadata_value(document: Document, raw_field: str):
     value = document.metadata.model_dump()
-    for part in raw_field.split("."):
+    resolved_field = _resolve_metadata_field_path(raw_field)
+    for part in resolved_field.split("."):
         field = _metadata_field_name(part)
         if isinstance(value, dict):
             value = _dict_get_case_insensitive(value, field)
@@ -240,6 +255,11 @@ def _metadata_value(document: Document, raw_field: str):
         return None
 
     return value
+
+
+def _resolve_metadata_field_path(raw_field: str) -> str:
+    normalized = raw_field.strip()
+    return METADATA_FIELD_ALIASES.get(normalized.lower(), normalized)
 
 
 def _metadata_field_name(raw_field: str) -> str:

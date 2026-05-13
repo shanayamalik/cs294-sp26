@@ -47,3 +47,13 @@ def test_parse_metadata_alias_query() -> None:
     assert query.filters[0].field == "pubDate"
     assert query.filters[0].operator == "gte"
     assert query.filters[0].value == "2019-01-01"
+
+
+def test_parse_metadata_date_convenience_alias_query() -> None:
+    query = parse_dsl("meta.appDate:=20110719")
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "metadata"
+    assert query.filters[0].field == "appDate"
+    assert query.filters[0].operator == "eq"
+    assert query.filters[0].value == "20110719"

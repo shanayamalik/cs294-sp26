@@ -16,3 +16,7 @@
 14. `meta.inventors.nameAndCity:^"Anderson" AND contains:"virtual machine"`
 15. `meta.pubDate:>=2019-01-01 AND contains:"usage metrics"`
 16. `meta.appNo:"12/345678"`
+17. `meta.assigneeName:~"Google" AND section:ABSTRACT`
+18. `meta.inventorName:^"Anderson" AND contains:"virtual machine"`
+19. `meta.published:>=2019-01-01 AND section:ABSTRACT`
+20. `meta.appDate:20110719`

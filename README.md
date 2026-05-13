@@ -17,7 +17,7 @@ We design a programming-oriented document analysis environment where patent docu
   - `meta.KEY == VALUE` (optional)
   - `meta.KEY < VALUE`, `<=`, `>`, `>=` for comparable metadata such as filing dates
   - `meta.KEY ~ VALUE` / `^ VALUE` for substring and prefix matching on string metadata such as assignee or inventor names
-  - selected metadata aliases such as `meta.pubDate`, `meta.appNo`, `meta.filed`, and `meta.appFiled`
+  - selected metadata aliases such as `meta.pubDate`, `meta.published`, `meta.appNo`, `meta.filing`, `meta.filed`, `meta.appDate`, `meta.appFiled`, `meta.assigneeName`, and `meta.inventorName`
   - `cpc == CODE` (optional)
   - `contains("phrase")`
   - `paragraph == NNNN` (optional pinpoint drill-down)
@@ -27,6 +27,9 @@ We design a programming-oriented document analysis environment where patent docu
   - `section:CLAIMS AND paragraph:0042`
   - `meta.filingDate:<2018-03-15 AND section:SPECIFICATION`
   - `meta.pubDate:>=2019-01-01`
+  - `meta.published:>=2019-01-01`
+  - `meta.appDate:20110719`
+  - `meta.assigneeName:~"Google"`
   - `meta.assignee.name:~"Google"`
   - `contains:"server" OR contains:"network"`
   - `NOT section:OTHER`

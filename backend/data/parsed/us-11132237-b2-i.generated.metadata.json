@@ -1,0 +1,48 @@
+{
+  "id": "us-11132237-b2-i",
+  "title": "System And Method For Usage-based Application Licensing In A Hypervisor Virtual Execution Environment",
+  "sourceFile": "US_11132237_B2_I.pdf",
+  "ingestedAt": "2026-05-09T20:51:46.861134+00:00",
+  "documentId": "US 11132237 B2",
+  "publicationDate": "2021-09-28",
+  "applicationNo": "12/566380",
+  "filingDate": "2009-09-24",
+  "applicationFilingDate": "20090924",
+  "inventors": [
+    {
+      "raw": "Cable; Laurence P. G. San FranciscoCA N/A US",
+      "state": "CA",
+      "nameAndCity": "Cable; Laurence P. G. San Francisco",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Piech; Michael San FranciscoCA N/A US",
+      "state": "CA",
+      "nameAndCity": "Piech; Michael San Francisco",
+      "zipCode": "N/A",
+      "country": "US"
+    }
+  ],
+  "assignee": {
+    "name": "ORACLE INTERNATIONAL CORPORATION",
+    "city": "Redwood Shores",
+    "state": "CA",
+    "zipcode": "N/A",
+    "country": "US",
+    "typecode": "02"
+  },
+  "cpc": [
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/5077",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 21/10",
+      "date": "2013-01-01"
+    }
+  ],
+  "usClassCurrent": "1/1"
+}

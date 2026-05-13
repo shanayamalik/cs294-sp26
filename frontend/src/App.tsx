@@ -34,6 +34,7 @@ export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
+  const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
@@ -87,10 +88,31 @@ export default function App() {
   }, []);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedCitationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedToChartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const preloadDocuments = useCallback(async (docIds: string[]) => {
+    if (docIds.length === 0) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE}/documents/preload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: docIds }),
+      });
+    } catch {
+      // Preloading is opportunistic; query execution remains the source of truth.
+    }
+  }, []);
+
   useEffect(() => {
+    if (!liveQueryEnabled) {
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void runQuery(selectedDocumentIds, queryText);
@@ -98,7 +120,22 @@ export default function App() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [queryText, selectedDocumentIds, runQuery]);
+  }, [liveQueryEnabled, queryText, selectedDocumentIds, runQuery]);
+
+  useEffect(() => {
+    if (!liveQueryEnabled || selectedDocumentIds.length === 0) {
+      return;
+    }
+
+    if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
+    preloadDebounceRef.current = setTimeout(() => {
+      void preloadDocuments(selectedDocumentIds);
+    }, 250);
+
+    return () => {
+      if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
+    };
+  }, [liveQueryEnabled, preloadDocuments, selectedDocumentIds]);
 
   async function loadDocuments() {
     try {
@@ -118,9 +155,20 @@ export default function App() {
   }
 
   function toggleDocument(documentId: string) {
+    setLiveQueryEnabled(true);
     setSelectedDocumentIds((current) =>
       current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId]
     );
+  }
+
+  function selectAllDocuments() {
+    setLiveQueryEnabled(true);
+    setSelectedDocumentIds(documents.map((doc) => doc.id));
+  }
+
+  function clearDocuments() {
+    setLiveQueryEnabled(true);
+    setSelectedDocumentIds([]);
   }
 
   async function copyCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
@@ -167,6 +215,9 @@ export default function App() {
       setError("Select at least one document first.");
       return;
     }
+
+    setLiveQueryEnabled(true);
+    void preloadDocuments(selectedDocumentIds);
     void runQuery(selectedDocumentIds, queryText);
   }
 
@@ -183,10 +234,10 @@ export default function App() {
           <fieldset className="documentPicker">
             <legend>Documents</legend>
             <div className="documentPickerActions">
-              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds(documents.map((doc) => doc.id))}>
+              <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
                 Select all
               </button>
-              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds([])}>
+              <button type="button" className="secondaryButton" onClick={clearDocuments}>
                 Clear
               </button>
             </div>
@@ -212,7 +263,10 @@ export default function App() {
             <textarea
               rows={3}
               value={queryText}
-              onChange={(event) => setQueryText(event.target.value)}
+              onChange={(event) => {
+                setLiveQueryEnabled(true);
+                setQueryText(event.target.value);
+              }}
               spellCheck={false}
             />
           </label>
@@ -254,20 +308,22 @@ export default function App() {
                   <span>Passage {match.passageIndex}</span>
                   {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
                   {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
-                  <button
-                    type="button"
-                    className="copyCitationButton"
-                    onClick={() => void copyCitation(match, documentTitle)}
-                  >
-                    {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
-                  </button>
-                  <button
-                    type="button"
-                    className="copyCitationButton"
-                    onClick={() => addMatchToChart(match, documentTitle)}
-                  >
-                    {savedToChartKey === `${match.documentId}:${match.passageId}` ? "Added to chart" : "Add to chart"}
-                  </button>
+                  <div className="resultActions">
+                    <button
+                      type="button"
+                      className="copyCitationButton"
+                      onClick={() => void copyCitation(match, documentTitle)}
+                    >
+                      {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
+                    </button>
+                    <button
+                      type="button"
+                      className="copyCitationButton"
+                      onClick={() => addMatchToChart(match, documentTitle)}
+                    >
+                      {savedToChartKey === `${match.documentId}:${match.passageId}` ? "Added to chart" : "Add to chart"}
+                    </button>
+                  </div>
                 </header>
 
                 <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>

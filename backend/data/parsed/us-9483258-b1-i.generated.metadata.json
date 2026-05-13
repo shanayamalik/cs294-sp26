@@ -1,0 +1,87 @@
+{
+  "id": "us-9483258-b1-i",
+  "title": "Multi-site Provisioning Of Resources To Software Offerings Using Infrastructure Slices",
+  "sourceFile": "US_9483258_B1_I.pdf",
+  "ingestedAt": "2026-05-09T20:51:47.159590+00:00",
+  "documentId": "US 9483258 B1",
+  "publicationDate": "2016-11-01",
+  "applicationNo": "13/095621",
+  "filingDate": "2011-04-27",
+  "applicationFilingDate": "20110427",
+  "inventors": [
+    {
+      "raw": "Labat; Jerome San Carlos CA N/A US",
+      "state": "CA",
+      "nameAndCity": "Labat; Jerome San Carlos",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Varadharajan; RamachandranFremont CA N/A US",
+      "state": "CA",
+      "nameAndCity": "Varadharajan; RamachandranFremont",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Armstrong; Joseph W. Santa Cruz CA N/A US",
+      "state": "CA",
+      "nameAndCity": "Armstrong; Joseph W. Santa Cruz",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Nimmagadda; Srinivas San Jose CA N/A US",
+      "state": "CA",
+      "nameAndCity": "Nimmagadda; Srinivas San Jose",
+      "zipCode": "N/A",
+      "country": "US"
+    }
+  ],
+  "assignee": {
+    "name": "INTUIT INC",
+    "city": "Mountain View",
+    "state": "CA",
+    "zipcode": "N/A",
+    "country": "US",
+    "typecode": "02"
+  },
+  "cpc": [
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/505",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 8/65",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 8/61",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 8/60",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/5077",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 11/07",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 8/71",
+      "date": "2013-01-01"
+    }
+  ],
+  "usClassCurrent": "1/1"
+}

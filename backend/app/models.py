@@ -189,6 +189,16 @@ class ParseDocumentRequest(BaseModel):
     fileName: str
 
 
+class PreloadDocumentsRequest(BaseModel):
+    documentIds: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize_document_ids(self) -> "PreloadDocumentsRequest":
+        seen: set[str] = set()
+        self.documentIds = [document_id for document_id in self.documentIds if not (document_id in seen or seen.add(document_id))]
+        return self
+
+
 def _groups_to_expression(groups: list[list[QueryClause]]) -> QueryExpression:
     group_expressions: list[QueryExpression] = []
     for group in groups:

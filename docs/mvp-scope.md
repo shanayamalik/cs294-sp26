@@ -42,9 +42,12 @@
 - Frontend result cards show paragraph / claim anchor badges when available
 - Frontend result cards support `Copy citation` for lightweight claim-mapping handoff
 - Frontend result cards support `Add to chart`, which sends live results into the separate claim-chart demo workspace
-- Frontend uses 600ms debounced live refresh so result sets update during query refinement
-- Separate `#claim-chart-demo` page provides an isolated claim-chart workspace with editable rows and TSV export
+- Frontend uses 600ms debounced live refresh so result sets update during query refinement after the user begins interacting
+- Separate `#claim-chart-demo` page provides an isolated claim-chart workspace with grouped claim elements, editable evidence/analysis fields, TSV export, and examiner-style DOCX export
 - Claim-chart demo persists saved rows in the browser so the search page and chart page stay connected without merging the workflows
+- Backend document store now indexes lightweight metadata separately from full document payloads and lazy-loads full documents on demand
+- Parsed document metadata can now be preprocessed into sidecar metadata files so startup indexing avoids reading full passage bodies
+- Frontend can opportunistically preload currently selected documents after user interaction instead of waiting for the first query to hydrate them one by one
 - Demo corpus includes parsed sample patent data and multiple USPTO patent PDFs
 - Supported demo queries are captured in [example-queries.md](example-queries.md)
 
@@ -56,17 +59,36 @@
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching, direct inventor / assignee name aliases, date convenience aliases, and derived priority / effective / admissibility date helpers~~ **done**
-  - remaining work: richer inventor / assignee facets beyond name lookup and any future deeper legal refinement beyond the current helper-based date model
+  - remaining action items:
+    - add richer inventor / assignee facets beyond direct name lookup
+    - decide whether any additional metadata fields should become first-class aliases instead of nested-only access
+    - document the current legal limits of the helper-based `priorityDate` / `effectiveDate` / `admissibilityDate` model before extending it
 - Claim-mapping support built on top of retrieved passages
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**
   - ~~stronger chart structure, better claim-element editing, grouped multi-evidence claim elements, TSV export, and examiner-style DOCX export~~ **done**
-  - remaining work: smoother chart navigation / editing workflows and any further export refinement beyond the current grouped DOCX layout
+  - remaining action items:
+    - add faster navigation between search hits and their grouped chart entries
+    - support row or group reordering inside the claim-chart workspace
+    - support bulk actions such as removing or clearing multiple evidence rows at once
+    - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
+    - refine DOCX output layout if we want a closer match to a specific examiner-style template
+    - decide whether export should include optional header fields such as patent number, claim set, analyst, or generation metadata
 - shanaya (me) wouldlike to do UI polish / visual redesign
   - I will do these on a separate branch so u cans see if u like it and find it aesthetic before we merge
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage
-  - Especially for larger document groups, both want to pre-load the docs we plan to search on (use early indicators?), 
-  as well as avoid needlessly loading unnecessary documents to prevent wasted time querying them
+  - ~~measure the current baseline for startup loading and document hydration~~ **done**
+  - ~~move startup loading to lightweight metadata indexing instead of eager full-document hydration~~ **done**
+  - ~~separate lightweight metadata loading from full passage-body loading so document discovery stays fast~~ **done**
+  - ~~avoid broad initial hydration from default UI state on first page load~~ **done**
+  - ~~add opportunistic preloading for the currently selected documents after user interaction~~ **done**
+  - ~~add backend instrumentation so lazy loads, cache hits, and preload requests can be observed directly~~ **done**
+  - remaining action items:
+    - benchmark this behavior against a meaningfully larger corpus instead of only the current demo set
+    - decide whether preload signals should expand beyond explicit selection to recent queries or likely-next documents
+    - design a cache/eviction policy so preloading remains helpful on larger document groups
+    - decide whether any additional preprocessing should happen ahead of time for thousands of pre-selected documents beyond metadata sidecars
+    - define acceptance thresholds for startup time, first-query latency, and memory usage on larger corpora
 - USPTO search integration
   - Chrome/Browser extension?
   - API integration with [USPTO API](https://data.uspto.gov/apis/getting-started)

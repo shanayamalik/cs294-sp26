@@ -1,0 +1,58 @@
+{
+  "id": "us-9323581-b1-i",
+  "title": "Space Inheritance",
+  "sourceFile": "US_9323581_B1_I.pdf",
+  "ingestedAt": "2026-05-09T20:51:46.962214+00:00",
+  "documentId": "US 9323581 B1",
+  "publicationDate": "2016-04-26",
+  "applicationNo": "13/077961",
+  "filingDate": "2011-03-31",
+  "applicationFilingDate": "20110331",
+  "inventors": [
+    {
+      "raw": "van Rotterdam; Jeroen Berkeley CA N/A US",
+      "state": "CA",
+      "nameAndCity": "van Rotterdam; Jeroen Berkeley",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Polman; Mark Rotterdam N/A N/A NL",
+      "state": "N/A",
+      "nameAndCity": "Polman; Mark Rotterdam",
+      "zipCode": "N/A",
+      "country": "NL"
+    }
+  ],
+  "assignee": {
+    "name": "EMC Corporation",
+    "city": "Hopkinton",
+    "state": "MA",
+    "zipcode": "N/A",
+    "country": "US",
+    "typecode": "02"
+  },
+  "cpc": [
+    {
+      "type": "CPCI",
+      "code": "G 06 F 3/0644",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 16/278",
+      "date": "2019-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 3/0631",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/5077",
+      "date": "2013-01-01"
+    }
+  ],
+  "usClassCurrent": "1/1"
+}

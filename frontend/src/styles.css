@@ -196,8 +196,15 @@ button:disabled {
   font-size: 0.9rem;
 }
 
-.copyCitationButton {
+.resultActions {
   margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.copyCitationButton {
   border: 1px solid #d8c7a7;
   border-radius: 999px;
   background: #fff7e8;

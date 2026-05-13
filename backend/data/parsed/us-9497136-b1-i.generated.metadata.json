@@ -1,0 +1,110 @@
+{
+  "id": "us-9497136-b1-i",
+  "title": "Method And System For Providing Usage Metrics To Manage Utilzation Of Cloud Computing Resources",
+  "sourceFile": "US_9497136_B1_I.pdf",
+  "ingestedAt": "2026-05-09T20:51:47.573385+00:00",
+  "documentId": "US 9497136 B1",
+  "publicationDate": "2016-11-15",
+  "applicationNo": "13/247505",
+  "filingDate": "2011-09-28",
+  "applicationFilingDate": "20110928",
+  "inventors": [
+    {
+      "raw": "Ramarao; Shreenidhi Bangalore N/A N/A IN",
+      "state": "N/A",
+      "nameAndCity": "Ramarao; Shreenidhi Bangalore",
+      "zipCode": "N/A",
+      "country": "IN"
+    },
+    {
+      "raw": "Ginzburg; Ilan St PancrasseN/A N/A FR",
+      "state": "N/A",
+      "nameAndCity": "Ginzburg; Ilan St Pancrasse",
+      "zipCode": "N/A",
+      "country": "FR"
+    },
+    {
+      "raw": "Guo; Feng Shanghai N/A N/A CN",
+      "state": "N/A",
+      "nameAndCity": "Guo; Feng Shanghai",
+      "zipCode": "N/A",
+      "country": "CN"
+    }
+  ],
+  "assignee": {
+    "name": "EMC CORPORATION",
+    "city": "Hopkinton",
+    "state": "MA",
+    "zipcode": "N/A",
+    "country": "US",
+    "typecode": "02"
+  },
+  "cpc": [
+    {
+      "type": "CPCI",
+      "code": "H 04 L 41/5009",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/5072",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "H 04 L 47/83",
+      "date": "2022-05-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "H 04 L 41/5012",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "H 04 L 47/78",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/45533",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/45558",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "G 06 F 2009/45591",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "G 06 F 9/5027",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "H 04 L 41/22",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "H 04 L 67/1008",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "H 04 L 41/5096",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCA",
+      "code": "H 04 L 67/1031",
+      "date": "2013-01-01"
+    }
+  ],
+  "usClassCurrent": "1/1"
+}

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .dsl_parser import parse_dsl
-from .models import ParseDocumentRequest, QueryRequest
+from .models import ParseDocumentRequest, PreloadDocumentsRequest, QueryRequest
 from .parser import parse_patent_text
 from .query_engine import execute_query_across_documents
 from .source_loader import load_source_text
@@ -41,6 +42,20 @@ def health() -> dict[str, str]:
 @app.get("/documents")
 def documents() -> dict[str, list[dict[str, str]]]:
     return {"documents": store.list()}
+
+
+@app.post("/documents/preload")
+def preload_documents(payload: PreloadDocumentsRequest) -> dict[str, Any]:
+    return {
+        "requestedDocuments": len(payload.documentIds),
+        "preloadedDocuments": store.preload(payload.documentIds),
+        "stats": store.stats(),
+    }
+
+
+@app.get("/debug/store-stats")
+def store_stats() -> dict[str, int | float]:
+    return store.stats()
 
 
 @app.post("/documents/parse")

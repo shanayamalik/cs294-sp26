@@ -28,7 +28,7 @@ This prototype combines a FastAPI backend, a lightweight patent-query DSL, and a
 - Frontend document picker for multi-document search
 - Result cards with document provenance, section metadata, neighboring context, and anchor badges when available (`paragraphId`, `claimNo`)
 - `Copy citation` and `Add to chart` actions on result cards
-- Separate `#claim-chart-demo` page for lightweight evidence collection and TSV export
+- Separate `#claim-chart-demo` page for grouped evidence collection, TSV export, and DOCX claim-chart export
 - Live query refresh with a 600ms debounce for iterative query refinement
 
 ## Example Queries

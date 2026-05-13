@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChartRow, loadChartRows, saveChartRows } from "./claimChartStorage";
+import { exportClaimChartDocx } from "./exportClaimChartDocx";
 
 type ClaimElementGroup = {
   id: string;
@@ -12,6 +13,7 @@ type ClaimElementGroup = {
 export default function ClaimChartDemo() {
   const [rows, setRows] = useState<ChartRow[]>(() => loadChartRows());
   const [copied, setCopied] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
 
   const groupedRows = useMemo(() => groupChartRows(rows), [rows]);
 
@@ -68,6 +70,27 @@ export default function ClaimChartDemo() {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  async function downloadDocx() {
+    setExportingDocx(true);
+
+    try {
+      await exportClaimChartDocx(
+        groupedRows.map((group) => ({
+          claim: group.claim,
+          elementLabel: group.elementLabel,
+          elementText: group.elementText,
+          rows: group.rows.map((row) => ({
+            citation: row.citation,
+            excerpt: row.excerpt,
+            notes: row.notes,
+          })),
+        }))
+      );
+    } finally {
+      setExportingDocx(false);
+    }
+  }
+
   return (
     <main className="chartDemoPage">
       <section className="panel chartDemoIntro">
@@ -106,9 +129,14 @@ export default function ClaimChartDemo() {
               <h2>Claim Chart Workspace</h2>
               <p className="subtitle">Rows with the same claim and element label are grouped under one claim element with separate evidence entries beneath it.</p>
             </div>
-            <button type="button" className="chartActionButton" onClick={() => void copyChartRows()} disabled={rows.length === 0}>
-              {copied ? "Copied rows" : "Copy rows as TSV"}
-            </button>
+            <div className="chartHeaderActions">
+              <button type="button" className="chartActionButton" onClick={() => void copyChartRows()} disabled={rows.length === 0}>
+                {copied ? "Copied rows" : "Copy rows as TSV"}
+              </button>
+              <button type="button" className="chartActionButton" onClick={() => void downloadDocx()} disabled={rows.length === 0 || exportingDocx}>
+                {exportingDocx ? "Preparing DOCX" : "Download DOCX"}
+              </button>
+            </div>
           </div>
 
           <div className="chartGroupList">

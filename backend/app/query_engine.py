@@ -23,11 +23,19 @@ from .models import (
 )
 
 METADATA_FIELD_ALIASES = {
+    "appfiled": "applicationFilingDate",
+    "appno": "applicationNo",
+    "application_filed": "applicationFilingDate",
     "application_filing_date": "applicationFilingDate",
     "application_no": "applicationNo",
+    "application_number": "applicationNo",
     "document_id": "documentId",
+    "docid": "documentId",
+    "filed": "filingDate",
     "filing_date": "filingDate",
     "ingested_at": "ingestedAt",
+    "pubdate": "publicationDate",
+    "pub_date": "publicationDate",
     "publication_date": "publicationDate",
     "source_file": "sourceFile",
     "us_class_current": "usClassCurrent",

@@ -136,3 +136,44 @@ def test_execute_query_metadata_contains_nested_field() -> None:
     assert result.totalMatches == 1
     assert result.matches[0].passageId == "p1"
     assert 'Matched meta.assignee.name:~"Google"' in result.matches[0].reasons
+
+
+def test_execute_query_metadata_aliases() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+            publicationDate="2021-09-28",
+            applicationNo="12/345678",
+            filingDate="2011-07-19",
+            applicationFilingDate="20110719",
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    publication_query = Query(filters=[MetadataFilter(kind="metadata", field="pubDate", operator="gte", value="2019-01-01")])
+    application_query = Query(filters=[MetadataFilter(kind="metadata", field="appNo", operator="eq", value="12/345678")])
+    filing_query = Query(filters=[MetadataFilter(kind="metadata", field="filed", operator="lt", value="2018-03-15")])
+    app_filed_query = Query(filters=[MetadataFilter(kind="metadata", field="appFiled", operator="eq", value="20110719")])
+
+    assert execute_query(fixture, publication_query).totalMatches == 1
+    assert execute_query(fixture, application_query).totalMatches == 1
+    assert execute_query(fixture, filing_query).totalMatches == 1
+    assert execute_query(fixture, app_filed_query).totalMatches == 1

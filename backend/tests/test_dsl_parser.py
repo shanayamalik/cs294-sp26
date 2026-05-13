@@ -37,3 +37,13 @@ def test_parse_metadata_contains_query() -> None:
     assert query.filters[0].field == "assignee.name"
     assert query.filters[0].operator == "contains"
     assert query.filters[0].value == "Google"
+
+
+def test_parse_metadata_alias_query() -> None:
+    query = parse_dsl("meta.pubDate:>=2019-01-01")
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "metadata"
+    assert query.filters[0].field == "pubDate"
+    assert query.filters[0].operator == "gte"
+    assert query.filters[0].value == "2019-01-01"

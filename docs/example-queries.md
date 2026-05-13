@@ -14,3 +14,5 @@
 12. `meta.publicationDate:>=2019-01-01 AND contains:"usage metrics"`
 13. `meta.assignee.name:~"Google" AND section:CLAIMS`
 14. `meta.inventors.nameAndCity:^"Anderson" AND contains:"virtual machine"`
+15. `meta.pubDate:>=2019-01-01 AND contains:"usage metrics"`
+16. `meta.appNo:"12/345678"`

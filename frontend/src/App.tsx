@@ -309,8 +309,10 @@ function createChartRow(match: QueryResponse["result"]["matches"][number], docum
   return {
     id: `${match.documentId}:${match.passageId}`,
     claim: match.claimNo != null ? `Claim ${match.claimNo}` : "Claim ?",
+    elementLabel: "",
     reference: `${documentTitle} (${match.documentId})`,
     location,
+    citation: formatCitation(match, documentTitle),
     excerpt: match.passageText,
     reason: match.reasons.join("; "),
     elementText: "",

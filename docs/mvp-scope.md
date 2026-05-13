@@ -60,7 +60,8 @@
 - Claim-mapping support built on top of retrieved passages
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**
-  - remaining work: stronger chart structure, better claim-element editing, and export formats closer to real examiner charts
+  - ~~stronger chart structure, better claim-element editing, grouped multi-evidence claim elements, and TSV export closer to examiner charts~~ **done**
+  - remaining work: examiner-style document export and smoother chart navigation / editing workflows
 - shanaya (me) wouldlike to do UI polish / visual redesign
   - I will do these on a separate branch so u cans see if u like it and find it aesthetic before we merge
 - Pre-loading and lazy loading of documents to improve performance, speed and memory usage

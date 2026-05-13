@@ -3,13 +3,17 @@ export const CLAIM_CHART_STORAGE_KEY = "claim-chart-rows";
 export type ChartRow = {
   id: string;
   claim: string;
+  elementLabel: string;
   reference: string;
   location: string;
+  citation: string;
   excerpt: string;
   reason: string;
   elementText: string;
   notes: string;
 };
+
+type StoredChartRow = Partial<ChartRow> & { id?: unknown };
 
 export function loadChartRows(): ChartRow[] {
   if (typeof window === "undefined") {
@@ -23,7 +27,7 @@ export function loadChartRows(): ChartRow[] {
     }
 
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeChartRow).filter((row): row is ChartRow => row !== null) : [];
   } catch {
     return [];
   }
@@ -46,4 +50,29 @@ export function upsertChartRow(row: ChartRow) {
 
   saveChartRows(nextRows);
   return alreadyExists;
+}
+
+function normalizeChartRow(row: StoredChartRow, index: number): ChartRow | null {
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+
+  const reference = typeof row.reference === "string" ? row.reference : "";
+  const location = typeof row.location === "string" ? row.location : "";
+
+  return {
+    id: typeof row.id === "string" ? row.id : `chart-row-${index}`,
+    claim: typeof row.claim === "string" ? row.claim : "Claim ?",
+    elementLabel: typeof row.elementLabel === "string" ? row.elementLabel : "",
+    reference,
+    location,
+    citation:
+      typeof row.citation === "string" && row.citation.trim().length > 0
+        ? row.citation
+        : [reference, location].filter(Boolean).join(", "),
+    excerpt: typeof row.excerpt === "string" ? row.excerpt : "",
+    reason: typeof row.reason === "string" ? row.reason : "",
+    elementText: typeof row.elementText === "string" ? row.elementText : "",
+    notes: typeof row.notes === "string" ? row.notes : "",
+  };
 }

@@ -29,6 +29,27 @@ def test_parse_contains_regex_query() -> None:
     assert query.filters[0].mode == "regex"
 
 
+def test_parse_synonym_of_query_expands_to_contains_or_expression() -> None:
+    query = parse_dsl('synonym_of:"virtual machine"')
+
+    assert query.expression is not None
+    assert query.expression.kind == "or"
+    assert {query_filter.value for query_filter in query.filters if query_filter.kind == "contains"} == {
+        "virtual machine",
+        "hypervisor",
+        "guest operating system",
+    }
+
+
+def test_parse_synonym_of_unknown_seed_raises_helpful_error() -> None:
+    try:
+        parse_dsl('synonym_of:"unknown term"')
+        raise AssertionError("Expected parse_dsl to raise ValueError")
+    except ValueError as error:
+        assert 'Unknown synonym seed: "unknown term"' in str(error)
+        assert '"routing table"' in str(error)
+
+
 def test_parse_unsupported_clause() -> None:
     try:
         parse_dsl("rank:semantic")

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChartRow, loadChartRows, saveChartRows } from "./claimChartStorage";
+import { ChartRow, loadChartRows, saveChartRows, saveSearchNavigationTarget } from "./claimChartStorage";
 import { exportClaimChartDocx } from "./exportClaimChartDocx";
 
 type ClaimElementGroup = {
@@ -91,6 +91,19 @@ export default function ClaimChartDemo() {
     }
   }
 
+  function openRowInSearch(row: ChartRow) {
+    if (!row.sourceQueryText || !row.sourceDocumentIds || row.sourceDocumentIds.length === 0) {
+      return;
+    }
+
+    saveSearchNavigationTarget({
+      documentIds: row.sourceDocumentIds,
+      queryText: row.sourceQueryText,
+      resultKey: row.sourceResultKey ?? row.id,
+    });
+    window.location.hash = "";
+  }
+
   return (
     <main className="chartDemoPage">
       <section className="panel chartDemoIntro">
@@ -114,9 +127,14 @@ export default function ClaimChartDemo() {
                 </div>
                 <p><b>Excerpt:</b> {item.excerpt}</p>
                 <p><b>Why it matters:</b> {item.reason}</p>
-                <button type="button" className="chartActionButton" onClick={() => removeRow(item.id)}>
-                  Remove from chart
-                </button>
+                <div className="chartEvidenceActions">
+                  <button type="button" className="chartActionButton" onClick={() => openRowInSearch(item)} disabled={!item.sourceQueryText}>
+                    View in search
+                  </button>
+                  <button type="button" className="chartActionButton" onClick={() => removeRow(item.id)}>
+                    Remove from chart
+                  </button>
+                </div>
               </article>
             ))}
             {rows.length === 0 ? <p className="subtitle">No saved evidence yet. Add passages from search results with the new Add to chart action.</p> : null}
@@ -201,9 +219,14 @@ export default function ClaimChartDemo() {
                               placeholder="Explain why this citation supports the claim element"
                             />
                           </label>
-                          <button type="button" className="chartLinkButton" onClick={() => removeRow(row.id)}>
-                            Remove evidence
-                          </button>
+                          <div className="chartEvidenceActions">
+                            <button type="button" className="chartLinkButton" onClick={() => openRowInSearch(row)} disabled={!row.sourceQueryText}>
+                              View in search
+                            </button>
+                            <button type="button" className="chartLinkButton" onClick={() => removeRow(row.id)}>
+                              Remove evidence
+                            </button>
+                          </div>
                         </div>
                       </details>
                     </article>

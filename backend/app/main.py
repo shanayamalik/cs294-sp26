@@ -12,6 +12,7 @@ from .parser import parse_patent_text
 from .query_engine import execute_query_across_documents
 from .source_loader import load_source_text
 from .store import DocumentStore
+from .synonym_sets import synonym_seed_summaries
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIR = BACKEND_ROOT / "data" / "raw"
@@ -56,6 +57,11 @@ def preload_documents(payload: PreloadDocumentsRequest) -> dict[str, Any]:
 @app.get("/debug/store-stats")
 def store_stats() -> dict[str, int | float]:
     return store.stats()
+
+
+@app.get("/query/synonym-sets")
+def query_synonym_sets() -> dict[str, list[dict[str, list[str] | str]]]:
+    return {"synonymSets": synonym_seed_summaries()}
 
 
 @app.post("/documents/parse")

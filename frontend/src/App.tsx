@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChartRow, upsertChartRow } from "./claimChartStorage";
+import { ChartRow, clearSearchNavigationTarget, loadSearchNavigationTarget, upsertChartRow } from "./claimChartStorage";
 
 type DocumentSummary = {
   id: string;
@@ -51,6 +51,8 @@ export default function App() {
   const [submittedQueryText, setSubmittedQueryText] = useState("");
   const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
   const [savedToChartKey, setSavedToChartKey] = useState<string | null>(null);
+  const [focusedResultKey, setFocusedResultKey] = useState<string | null>(null);
+  const [pendingSearchNavigation, setPendingSearchNavigation] = useState(() => loadSearchNavigationTarget());
 
   useEffect(() => {
     void loadDocuments();
@@ -119,6 +121,32 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (documents.length === 0) {
+      return;
+    }
+
+    const target = pendingSearchNavigation;
+    if (!target) {
+      return;
+    }
+
+    const nextDocumentIds = target.documentIds.filter((id) => documentsById.has(id));
+    if (nextDocumentIds.length === 0) {
+      clearSearchNavigationTarget();
+      setPendingSearchNavigation(null);
+      return;
+    }
+
+    setSelectedDocumentIds(nextDocumentIds);
+    setQueryText(target.queryText);
+    setLiveQueryEnabled(true);
+    setFocusedResultKey(target.resultKey);
+    setPendingSearchNavigation(null);
+    void preloadDocuments(nextDocumentIds);
+    void runQuery(nextDocumentIds, target.queryText);
+  }, [documents.length, documentsById, pendingSearchNavigation, preloadDocuments, runQuery]);
+
+  useEffect(() => {
     if (!liveQueryEnabled) {
       return;
     }
@@ -146,6 +174,23 @@ export default function App() {
       if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
     };
   }, [liveQueryEnabled, preloadDocuments, selectedDocumentIds]);
+
+  useEffect(() => {
+    if (!focusedResultKey) {
+      return;
+    }
+
+    const element = document.getElementById(resultElementId(focusedResultKey));
+    if (!element) {
+      return;
+    }
+
+    clearSearchNavigationTarget();
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    const timeout = window.setTimeout(() => setFocusedResultKey(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [focusedResultKey, queryResult]);
 
   async function loadDocuments() {
     try {
@@ -197,7 +242,7 @@ export default function App() {
 
   function addMatchToChart(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
     try {
-      const chartRow = createChartRow(match, documentTitle);
+      const chartRow = createChartRow(match, documentTitle, queryText, selectedDocumentIds);
       upsertChartRow(chartRow);
 
       const matchKey = `${match.documentId}:${match.passageId}`;
@@ -217,6 +262,10 @@ export default function App() {
     const truncated = text.slice(0, PASSAGE_PREVIEW_LIMIT);
     const lastSpace = truncated.lastIndexOf(" ");
     return `${truncated.slice(0, lastSpace > 280 ? lastSpace : PASSAGE_PREVIEW_LIMIT).trim()}...`;
+  }
+
+  function goToChart() {
+    window.location.hash = "#claim-chart-demo";
   }
 
   async function onSubmit(event: FormEvent) {
@@ -305,9 +354,14 @@ export default function App() {
         <div className="results">
           {queryResult?.result.matches.map((match) => {
             const documentTitle = documentsById.get(match.documentId)?.title ?? match.documentId;
+            const resultKey = `${match.documentId}:${match.passageId}`;
 
             return (
-              <article key={`${match.documentId}:${match.passageId}`} className="resultCard">
+              <article
+                key={resultKey}
+                id={resultElementId(resultKey)}
+                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}`}
+              >
                 <header>
                   <span className="documentLabel">
                     {highlightText(documentTitle, highlightTerms)}
@@ -324,14 +378,17 @@ export default function App() {
                       className="copyCitationButton"
                       onClick={() => void copyCitation(match, documentTitle)}
                     >
-                      {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
+                      {copiedCitationKey === resultKey ? "Copied" : "Copy citation"}
                     </button>
                     <button
                       type="button"
                       className="copyCitationButton"
                       onClick={() => addMatchToChart(match, documentTitle)}
                     >
-                      {savedToChartKey === `${match.documentId}:${match.passageId}` ? "Added to chart" : "Add to chart"}
+                      {savedToChartKey === resultKey ? "Added to chart" : "Add to chart"}
+                    </button>
+                    <button type="button" className="copyCitationButton" onClick={goToChart}>
+                      View chart
                     </button>
                   </div>
                 </header>
@@ -369,7 +426,12 @@ function formatCitation(match: QueryResponse["result"]["matches"][number], docum
   return `${documentTitle} (${match.documentId}), ${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${anchor}`;
 }
 
-function createChartRow(match: QueryResponse["result"]["matches"][number], documentTitle: string): ChartRow {
+function createChartRow(
+  match: QueryResponse["result"]["matches"][number],
+  documentTitle: string,
+  queryText: string,
+  selectedDocumentIds: string[]
+): ChartRow {
   const location = match.paragraphId != null ? `¶[${match.paragraphId}]` : match.claimNo != null ? `Claim ${match.claimNo}` : `Passage ${match.passageIndex}`;
 
   return {
@@ -383,7 +445,14 @@ function createChartRow(match: QueryResponse["result"]["matches"][number], docum
     reason: match.reasons.join("; "),
     elementText: "",
     notes: `${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${location}`,
+    sourceDocumentIds: selectedDocumentIds,
+    sourceQueryText: queryText,
+    sourceResultKey: `${match.documentId}:${match.passageId}`,
   };
+}
+
+function resultElementId(resultKey: string) {
+  return `result-${resultKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function extractHighlightTerms(queryText: string) {

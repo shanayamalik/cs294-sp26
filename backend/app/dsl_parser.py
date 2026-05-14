@@ -17,6 +17,7 @@ from .models import (
     SectionFilter,
     coerce_section_type,
 )
+from .synonym_sets import synonym_contains_filters
 
 
 @dataclass
@@ -151,7 +152,8 @@ class _ExpressionParser:
             raise ValueError(f"Expected query clause, got {token.value}.")
 
         self.index += 1
-        return FilterExpression(kind="filter", filter=_parse_clause(token.value))
+        parsed_clause = _parse_clause(token.value)
+        return parsed_clause if isinstance(parsed_clause, (FilterExpression, AndExpression, OrExpression, NotExpression)) else FilterExpression(kind="filter", filter=parsed_clause)
 
     def _match(self, kind: str) -> bool:
         if self._current() and self._current().kind == kind:
@@ -165,6 +167,18 @@ class _ExpressionParser:
 
 
 def _parse_clause(clause: str):
+    synonym_match = re.match(r'^synonym_of:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if synonym_match:
+        seed = (synonym_match.group(1) or synonym_match.group(2) or "").strip()
+        if not seed:
+            raise ValueError("synonym_of filter requires a non-empty term.")
+
+        contains_expressions = [
+            FilterExpression(kind="filter", filter=contains_filter)
+            for contains_filter in synonym_contains_filters(seed)
+        ]
+        return contains_expressions[0] if len(contains_expressions) == 1 else OrExpression(kind="or", expressions=contains_expressions)
+
     section_match = re.match(r"^section:([A-Za-z_\-\s]+)$", clause, flags=re.IGNORECASE)
     if section_match:
         section_type = coerce_section_type(section_match.group(1))

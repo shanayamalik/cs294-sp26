@@ -18,6 +18,7 @@
 - Query filters:
   - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
+  - `synonym_of:"term"` for deterministic built-in synonym expansion into ordinary passage text matching
   - `meta.KEY:"value"`
   - `meta.KEY:<value`, `<=value`, `>value`, `>=value` for comparable metadata fields such as filing dates
   - `meta.KEY:~value`, `^value` for substring and prefix matching on string metadata
@@ -61,8 +62,11 @@
     - consider exposing already-extracted structural fields such as `claimNo` and `figureRefs` as queryable filters if we want more patent-specific retrieval beyond `paragraph:` and `cpc:`
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
   - recommended focus:
-    - add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them
-    - decide whether synonym support should live in the DSL itself, in the UI as query-building assistance, or in a hybrid model with saved term sets expanded into plain DSL queries
+    - ~~add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them~~ **done**
+    - remaining action items:
+      - decide whether to keep synonym support as `synonym_of:"term"` only or also add a reusable `termset:` style syntax for named synonym groups
+      - decide whether the next layer of synonym support should live in the UI as query-building assistance, in the DSL itself, or in a hybrid model
+      - consider corpus-assisted synonym suggestions from the currently selected documents before adding any LLM-backed suggestion flow
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching, direct inventor / assignee name aliases, date convenience aliases, and derived priority / effective / admissibility date helpers~~ **done**
@@ -104,7 +108,6 @@
 ### Recommended Next Implementation Order
 
 - Highest priority / strongest writeup alignment:
-  - add real synonym-management support (saved term sets, assisted expansion, or hybrid UI + DSL support) so Need 1 is addressed as workflow support rather than only manual `OR` composition
   - add jump/navigation links between search results and grouped claim-chart entries so the current search-to-chart handoff becomes a true workflow rather than a one-way transfer
 - Medium priority / strong workflow payoff:
   - add row or group reordering in the claim-chart workspace so grouped evidence can be organized into a reviewer-friendly order
@@ -133,16 +136,14 @@
   vs document-level search) and difference in part of workflow (find relevant potentially relevant docs -> determine 
   relevance of docs and find specific pieces of evidence)
 
-  - built-in synonyms with `synonym_of:"term"` *justification/need-finding relation*
-    - even though you would ideally determine synonyms to find relevant documents on your document-level initial search,
-    this still provides a proof-of-concept for assistance when patent examiners are lacking comprehensive vocab coverage
-    in their searches
-    - to determine synonyms, can do a couple options:
-      - search on initial documents from intial `"term"`, then take found synonyms in those docs/passages and repeat 
-      search
-      - use llm to give synonyms (can or can not be integrated in actual DSL but in webapp instead?)
-        - ideally it would be integrated tbh
-      - use a general lexical database like WordNet (likely too general and weak for actual patent examiner worflows)
+  - ~~built-in synonyms with `synonym_of:"term"`~~ **done**
+    - current implementation: deterministic built-in synonym seeds expand into ordinary `contains:` filters at parse time, so the execution engine stays transparent and testable
+    - justification / need-finding relation: even though broad synonym discovery often happens earlier in document-level search, this still provides a proof-of-concept for helping examiners when they lack comprehensive vocabulary coverage during passage-level analysis
+    - remaining follow-up ideas:
+      - add UI support that shows the available built-in synonym seeds and the exact expanded terms before the query runs
+      - consider corpus-assisted suggestion from the currently selected documents as the next synonym-expansion layer
+      - keep LLM-backed synonym suggestion optional and deferred, rather than making live query execution depend on it
+      - avoid relying on general lexical resources like WordNet as the main solution, since they are likely too general and weak for patent-examiner workflows
 
 
 ### Stretchy Goals

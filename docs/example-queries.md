@@ -28,3 +28,5 @@
 26. `section:BACKGROUND AND contains:"signal processing"`
 27. `section:SUMMARY AND contains:"virtual network"`
 28. `section:DESCRIPTION AND contains:"sensor data"`
+29. `synonym_of:"virtual machine"`
+30. `section:DESCRIPTION AND synonym_of:"routing table"`

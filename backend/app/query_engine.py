@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from functools import lru_cache
 
 from .models import (
     ContainsFilter,
@@ -136,7 +137,7 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
         return candidate.section.type == query_filter.value
 
     if isinstance(query_filter, ContainsFilter):
-        return query_filter.value.lower() in candidate.passage.text.lower()
+        return _contains_matches(candidate.passage.text, query_filter.value, query_filter.mode)
 
     if isinstance(query_filter, ParagraphFilter):
         return candidate.passage.paragraphId == query_filter.value
@@ -166,7 +167,8 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
         return f"{prefix}section:{query_filter.value}"
 
     if isinstance(query_filter, ContainsFilter):
-        return f'{prefix}contains:"{query_filter.value}"'
+        filter_name = "contains.regex" if query_filter.mode == "regex" else "contains"
+        return f'{prefix}{filter_name}:"{query_filter.value}"'
 
     if isinstance(query_filter, ParagraphFilter):
         return f"{prefix}paragraph:{query_filter.value}"
@@ -219,6 +221,22 @@ def execute_query_across_documents(documents: list[Document], query: Query) -> Q
         matches.extend(execute_query(document, query).matches)
 
     return QueryResult(totalMatches=len(matches), matches=matches)
+
+
+def _contains_matches(text: str, expected: str, mode: str = "literal") -> bool:
+    if mode == "regex":
+        pattern = _compile_contains_pattern(expected)
+        return pattern is not None and pattern.search(text) is not None
+
+    return expected.casefold() in text.casefold()
+
+
+@lru_cache(maxsize=512)
+def _compile_contains_pattern(pattern: str):
+    try:
+        return re.compile(pattern, flags=re.IGNORECASE)
+    except re.error:
+        return None
 
 
 def _flatten(document: Document) -> list[_Candidate]:

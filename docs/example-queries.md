@@ -23,3 +23,5 @@
 21. `meta.priorityDate:<2011-07-01 AND section:ABSTRACT`
 22. `meta.effectiveDate:<2011-07-01 AND section:ABSTRACT`
 23. `meta.admissibilityDate:<2011-07-01 AND section:ABSTRACT`
+24. `contains.regex:"virtual\s+machine|hypervisor"`
+25. `contains.regex:"servers?"`

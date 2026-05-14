@@ -17,7 +17,7 @@ This prototype combines a FastAPI backend, a lightweight patent-query DSL, and a
 - Document model: `Document -> Section -> Passage`
 - Parser for constrained raw patent inputs (`.txt` and text-extractable `.pdf`)
 - Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
-- Query filters for section, phrase, CPC, paragraph anchor, and metadata
+- Query filters for section, phrase/regex containment, CPC, paragraph anchor, and metadata
 - Metadata support for:
   - exact match
   - date and numeric comparison (`<`, `<=`, `>`, `>=`)
@@ -43,6 +43,7 @@ meta.inventorName:^"Anderson" AND contains:"virtual machine"
 meta.priorityDate:<2011-07-01
 meta.admissibilityDate:<2011-07-01
 contains:"server" OR contains:"network"
+contains.regex:"virtual\s+machine|hypervisor"
 NOT section:OTHER
 ```
 

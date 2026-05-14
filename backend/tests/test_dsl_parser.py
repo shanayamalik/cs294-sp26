@@ -9,6 +9,16 @@ def test_parse_section_contains_query() -> None:
     assert query.filters[0].value == "SPECIFICATION"
     assert query.filters[1].kind == "contains"
     assert query.filters[1].value == "signal processing"
+    assert query.filters[1].mode == "literal"
+
+
+def test_parse_contains_regex_query() -> None:
+    query = parse_dsl(r'contains.regex:"signal\s+processing"')
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "contains"
+    assert query.filters[0].value == r"signal\s+processing"
+    assert query.filters[0].mode == "regex"
 
 
 def test_parse_unsupported_clause() -> None:

@@ -66,6 +66,157 @@ def test_execute_query_section_and_contains() -> None:
     assert "Matched section:SPECIFICATION" in result.matches[0].reasons
 
 
+def test_execute_query_contains_supports_regex() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A Signal    processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=55,
+                    ),
+                    Passage(
+                        id="p2",
+                        text="Calibration updates are applied once per cycle.",
+                        index=1,
+                        sectionType="SPECIFICATION",
+                        startOffset=56,
+                        endOffset=105,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[ContainsFilter(kind="contains", value=r"signal\s+processing", mode="regex")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+    assert r'Matched contains.regex:"signal\s+processing"' in result.matches[0].reasons
+
+
+def test_execute_query_plain_contains_does_not_interpret_regex() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A Signal    processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=55,
+                    )
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[ContainsFilter(kind="contains", value=r"signal\s+processing")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 0
+
+
+def test_execute_query_contains_keeps_literal_phrase_behavior_for_regex_punctuation() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="The C++ module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=36,
+                    ),
+                    Passage(
+                        id="p2",
+                        text="The Python module receives sensor data.",
+                        index=1,
+                        sectionType="SPECIFICATION",
+                        startOffset=37,
+                        endOffset=76,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[ContainsFilter(kind="contains", value="C++")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+
+
+def test_execute_query_contains_ignores_invalid_regex_when_literal_does_not_match() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="SPECIFICATION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="SPECIFICATION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[ContainsFilter(kind="contains", value="[", mode="regex")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 0
+
+
 def test_execute_query_metadata_date_comparison() -> None:
     fixture = Document(
         metadata=DocumentMetadata(

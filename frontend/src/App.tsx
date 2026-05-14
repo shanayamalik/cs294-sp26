@@ -30,6 +30,16 @@ type QueryResponse = {
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 const PASSAGE_PREVIEW_LIMIT = 420;
 
+type HighlightTerm = {
+  value: string;
+  allowRegex: boolean;
+};
+
+type HighlightSpan = {
+  start: number;
+  end: number;
+};
+
 export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -377,30 +387,41 @@ function createChartRow(match: QueryResponse["result"]["matches"][number], docum
 }
 
 function extractHighlightTerms(queryText: string) {
-  const terms: string[] = [];
+  const terms: HighlightTerm[] = [];
 
   for (const clause of splitQueryClauses(queryText)) {
+    const containsRegexMatch = clause.match(/^contains\.regex\s*:\s*(?:"([^"]+)"|(.+))$/i);
+    if (containsRegexMatch) {
+      terms.push({ value: (containsRegexMatch[1] ?? containsRegexMatch[2] ?? "").trim(), allowRegex: true });
+      continue;
+    }
+
     const containsMatch = clause.match(/^contains\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (containsMatch) {
-      terms.push((containsMatch[1] ?? containsMatch[2] ?? "").trim());
+      terms.push({ value: (containsMatch[1] ?? containsMatch[2] ?? "").trim(), allowRegex: false });
       continue;
     }
 
     const metadataMatch = clause.match(/^(?:meta|metadata)\.[A-Za-z0-9_.-]+\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (metadataMatch) {
-      terms.push((metadataMatch[1] ?? metadataMatch[2] ?? "").trim());
+      terms.push({ value: (metadataMatch[1] ?? metadataMatch[2] ?? "").trim(), allowRegex: false });
       continue;
     }
 
     const elementMatch = clause.match(/^(?:cpc|paragraph|claim|figure)\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (elementMatch) {
-      terms.push((elementMatch[1] ?? elementMatch[2] ?? "").trim());
+      terms.push({ value: (elementMatch[1] ?? elementMatch[2] ?? "").trim(), allowRegex: false });
     }
   }
 
-  return [...new Map(terms.filter(Boolean).map((term) => [term.toLowerCase(), term])).values()].sort(
-    (left, right) => right.length - left.length
-  );
+  const uniqueTerms = new Map<string, HighlightTerm>();
+  for (const term of terms.filter((term) => term.value)) {
+    const key = term.value.toLowerCase();
+    const existing = uniqueTerms.get(key);
+    uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);
+  }
+
+  return [...uniqueTerms.values()].sort((left, right) => right.value.length - left.value.length);
 }
 
 function splitQueryClauses(queryText: string) {
@@ -461,23 +482,102 @@ function stripNotOperators(clause: string) {
   return nextClause.replace(/^\(+\s*/, "").replace(/\s*\)+$/, "").trim();
 }
 
-function highlightText(text: string, terms: string[]): ReactNode {
+function highlightText(text: string, terms: HighlightTerm[]): ReactNode {
   if (terms.length === 0) {
     return text;
   }
 
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
-  return text.split(pattern).map((part, index) =>
-    terms.some((term) => term.toLowerCase() === part.toLowerCase()) ? (
-      <mark key={`${part}-${index}`} className="queryHighlight">
-        {part}
+  const spans = collectHighlightSpans(text, terms);
+  if (spans.length === 0) {
+    return text;
+  }
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  spans.forEach((span, index) => {
+    if (span.start > cursor) {
+      nodes.push(text.slice(cursor, span.start));
+    }
+
+    nodes.push(
+      <mark key={`${span.start}-${span.end}-${index}`} className="queryHighlight">
+        {text.slice(span.start, span.end)}
       </mark>
-    ) : (
-      part
-    )
-  );
+    );
+    cursor = span.end;
+  });
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function collectHighlightSpans(text: string, terms: HighlightTerm[]) {
+  const spans: HighlightSpan[] = [];
+
+  for (const term of terms) {
+    if (term.allowRegex) {
+      spans.push(...findRegexSpans(text, term.value));
+      continue;
+    }
+
+    const literalMatches = findLiteralSpans(text, term.value);
+    spans.push(...literalMatches);
+  }
+
+  return mergeHighlightSpans(spans);
+}
+
+function findLiteralSpans(text: string, term: string) {
+  const spans: HighlightSpan[] = [];
+  const normalizedText = text.toLowerCase();
+  const normalizedTerm = term.toLowerCase();
+  let index = normalizedText.indexOf(normalizedTerm);
+
+  while (index !== -1) {
+    spans.push({ start: index, end: index + term.length });
+    index = normalizedText.indexOf(normalizedTerm, index + term.length);
+  }
+
+  return spans;
+}
+
+function findRegexSpans(text: string, pattern: string) {
+  const spans: HighlightSpan[] = [];
+  let regex: RegExp;
+
+  try {
+    regex = new RegExp(pattern, "gi");
+  } catch {
+    return spans;
+  }
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match[0].length === 0) {
+      regex.lastIndex += 1;
+      continue;
+    }
+
+    spans.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  return spans;
+}
+
+function mergeHighlightSpans(spans: HighlightSpan[]) {
+  const ordered = [...spans].sort((left, right) => left.start - right.start || right.end - left.end);
+  const merged: HighlightSpan[] = [];
+
+  for (const span of ordered) {
+    const last = merged[merged.length - 1];
+    if (!last || span.start >= last.end) {
+      merged.push(span);
+    }
+  }
+
+  return merged;
 }

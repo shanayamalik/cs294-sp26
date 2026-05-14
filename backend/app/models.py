@@ -70,6 +70,7 @@ class SectionFilter(BaseModel):
 class ContainsFilter(BaseModel):
     kind: Literal["contains"]
     value: str
+    mode: Literal["literal", "regex"] = "literal"
 
 
 class MetadataFilter(BaseModel):

@@ -172,12 +172,12 @@ def _parse_clause(clause: str):
             raise ValueError(f"Unknown section type: {section_match.group(1)}")
         return SectionFilter(kind="section", value=section_type)
 
-    contains_match = re.match(r'^contains:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    contains_match = re.match(r'^contains(?:\.(regex))?:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if contains_match:
-        phrase = (contains_match.group(1) or contains_match.group(2) or "").strip()
+        phrase = (contains_match.group(2) or contains_match.group(3) or "").strip()
         if not phrase:
             raise ValueError("contains filter requires a non-empty phrase.")
-        return ContainsFilter(kind="contains", value=phrase)
+        return ContainsFilter(kind="contains", value=phrase, mode="regex" if contains_match.group(1) else "literal")
 
     cpc_match = re.match(r'^cpc:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if cpc_match:

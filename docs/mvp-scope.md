@@ -17,7 +17,7 @@
   - optional `figureRefs`
 - Query filters:
   - `section:TYPE`
-  - `contains:"phrase"`
+  - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
   - `meta.KEY:"value"`
   - `meta.KEY:<value`, `<=value`, `>value`, `>=value` for comparable metadata fields such as filing dates
   - `meta.KEY:~value`, `^value` for substring and prefix matching on string metadata
@@ -106,6 +106,17 @@
   - some feature overlaps can be fine due to enhancements from our interface vs USPTO search interface (passage-level 
   vs document-level search) and difference in part of workflow (find relevant potentially relevant docs -> determine 
   relevance of docs and find specific pieces of evidence)
+
+  - built-in synonyms with `synonym_of:"term"` *justification/need-finding relation*
+    - even though you would ideally determine synonyms to find relevant documents on your document-level initial search,
+    this still provides a proof-of-concept for assistance when patent examiners are lacking comprehensive vocab coverage
+    in their searches
+    - to determine synonyms, can do a couple options:
+      - search on initial documents from intial `"term"`, then take found synonyms in those docs/passages and repeat 
+      search
+      - use llm to give synonyms (can or can not be integrated in actual DSL but in webapp instead?)
+        - ideally it would be integrated tbh
+      - use a general lexical database like WordNet (likely too general and weak for actual patent examiner worflows)
 
 
 ### Stretchy Goals

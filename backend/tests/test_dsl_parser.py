@@ -12,6 +12,14 @@ def test_parse_section_contains_query() -> None:
     assert query.filters[1].mode == "literal"
 
 
+def test_parse_granular_section_query() -> None:
+    query = parse_dsl('section:BACKGROUND AND contains:"signal processing"')
+
+    assert len(query.filters) == 2
+    assert query.filters[0].kind == "section"
+    assert query.filters[0].value == "BACKGROUND"
+
+
 def test_parse_contains_regex_query() -> None:
     query = parse_dsl(r'contains.regex:"signal\s+processing"')
 

@@ -16,7 +16,7 @@
   - optional anchors (`paragraphId`, `claimNo`) when available
   - optional `figureRefs`
 - Query filters:
-  - `section:TYPE`
+  - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
   - `meta.KEY:"value"`
   - `meta.KEY:<value`, `<=value`, `>value`, `>=value` for comparable metadata fields such as filing dates
@@ -55,7 +55,14 @@
 
 - More Query filters:
   - ~~`paragraph:NNNN` (optional pinpoint filter, not primary retrieval)~~ **done** 
+  - ~~add finer-grained section filters so users can distinguish `BACKGROUND`, `SUMMARY`, and detailed-description style sections instead of only the broader `SPECIFICATION` bucket~~ **done**
+  - remaining action items:
+    - consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect
+    - consider exposing already-extracted structural fields such as `claimNo` and `figureRefs` as queryable filters if we want more patent-specific retrieval beyond `paragraph:` and `cpc:`
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
+  - recommended focus:
+    - add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them
+    - decide whether synonym support should live in the DSL itself, in the UI as query-building assistance, or in a hybrid model with saved term sets expanded into plain DSL queries
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching, direct inventor / assignee name aliases, date convenience aliases, and derived priority / effective / admissibility date helpers~~ **done**
@@ -92,6 +99,25 @@
 - USPTO search integration
   - Chrome/Browser extension?
   - API integration with [USPTO API](https://data.uspto.gov/apis/getting-started)
+
+
+### Recommended Next Implementation Order
+
+- Highest priority / strongest writeup alignment:
+  - add real synonym-management support (saved term sets, assisted expansion, or hybrid UI + DSL support) so Need 1 is addressed as workflow support rather than only manual `OR` composition
+  - add jump/navigation links between search results and grouped claim-chart entries so the current search-to-chart handoff becomes a true workflow rather than a one-way transfer
+- Medium priority / strong workflow payoff:
+  - add row or group reordering in the claim-chart workspace so grouped evidence can be organized into a reviewer-friendly order
+  - add bulk evidence actions such as remove-selected / clear-selected so chart cleanup does not stay fully manual as saved evidence grows
+  - expose more patent-specific structure in the DSL, especially `claimNo` and possibly `figureRefs`, if we want a more distinctive examiner-focused query story
+- Lower priority / important for polish or validation:
+  - add richer inventor / assignee facets and decide which metadata fields deserve first-class aliases instead of only nested access
+  - document the legal limits of the helper-based date fields before extending them further, so the tool stays honest about what is heuristic versus legally definitive
+  - benchmark lazy-load / preload behavior on a larger corpus and define concrete acceptance targets for startup latency, first-query latency, and memory use
+- Likely defer unless time remains:
+  - smarter preload prediction beyond explicit document selection
+  - USPTO integration surfaces such as an extension or API-backed search bridge
+  - semantic ranking, embeddings, or cross-document joins, since these are less central to the current writeup than the workflow gaps above
 
 
 ### Additional Thoughts

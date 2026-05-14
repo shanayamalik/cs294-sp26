@@ -25,3 +25,6 @@
 23. `meta.admissibilityDate:<2011-07-01 AND section:ABSTRACT`
 24. `contains.regex:"virtual\s+machine|hypervisor"`
 25. `contains.regex:"servers?"`
+26. `section:BACKGROUND AND contains:"signal processing"`
+27. `section:SUMMARY AND contains:"virtual network"`
+28. `section:DESCRIPTION AND contains:"sensor data"`

@@ -134,13 +134,23 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
         return _cpc_matches(document, query_filter.value)
 
     if isinstance(query_filter, SectionFilter):
-        return candidate.section.type == query_filter.value
+        return _section_matches(candidate.section.type, query_filter.value)
 
     if isinstance(query_filter, ContainsFilter):
         return _contains_matches(candidate.passage.text, query_filter.value, query_filter.mode)
 
     if isinstance(query_filter, ParagraphFilter):
         return candidate.passage.paragraphId == query_filter.value
+
+    return False
+
+
+def _section_matches(actual: str, expected: str) -> bool:
+    if actual == expected:
+        return True
+
+    if expected == "SPECIFICATION":
+        return actual in {"BACKGROUND", "SUMMARY", "DESCRIPTION", "SPECIFICATION"}
 
     return False
 

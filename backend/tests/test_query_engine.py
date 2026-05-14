@@ -66,6 +66,112 @@ def test_execute_query_section_and_contains() -> None:
     assert "Matched section:SPECIFICATION" in result.matches[0].reasons
 
 
+def test_execute_query_specification_filter_matches_granular_sections() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="BACKGROUND",
+                title="BACKGROUND OF THE INVENTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="Background signal processing context.",
+                        index=0,
+                        sectionType="BACKGROUND",
+                        startOffset=0,
+                        endOffset=37,
+                    )
+                ],
+            ),
+            Section(
+                type="DESCRIPTION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p2",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="DESCRIPTION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            ),
+        ],
+    )
+
+    query = Query(
+        filters=[
+            SectionFilter(kind="section", value="SPECIFICATION"),
+            ContainsFilter(kind="contains", value="signal processing"),
+        ]
+    )
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 2
+    assert {match.passageId for match in result.matches} == {"p1", "p2"}
+
+
+def test_execute_query_background_filter_is_more_specific() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="BACKGROUND",
+                title="BACKGROUND OF THE INVENTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="Background signal processing context.",
+                        index=0,
+                        sectionType="BACKGROUND",
+                        startOffset=0,
+                        endOffset=37,
+                    )
+                ],
+            ),
+            Section(
+                type="DESCRIPTION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p2",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="DESCRIPTION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            ),
+        ],
+    )
+
+    query = Query(
+        filters=[
+            SectionFilter(kind="section", value="BACKGROUND"),
+            ContainsFilter(kind="contains", value="signal processing"),
+        ]
+    )
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+
+
 def test_execute_query_contains_supports_regex() -> None:
     fixture = Document(
         metadata=DocumentMetadata(

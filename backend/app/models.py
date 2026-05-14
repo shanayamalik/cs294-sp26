@@ -4,20 +4,23 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-SectionType = Literal["TITLE", "ABSTRACT", "SPECIFICATION", "CLAIMS", "OTHER"]
+SectionType = Literal["TITLE", "ABSTRACT", "BACKGROUND", "SUMMARY", "DESCRIPTION", "SPECIFICATION", "CLAIMS", "OTHER"]
 
 SECTION_SYNONYMS: dict[str, SectionType] = {
     "TITLE": "TITLE",
     "ABSTRACT": "ABSTRACT",
+    "BACKGROUND": "BACKGROUND",
+    "BACKGROUND OF THE INVENTION": "BACKGROUND",
     "CLAIM": "CLAIMS",
     "CLAIMS": "CLAIMS",
+    "SUMMARY": "SUMMARY",
+    "BRIEF SUMMARY": "SUMMARY",
+    "SUMMARY OF THE INVENTION": "SUMMARY",
     "SPECIFICATION": "SPECIFICATION",
-    "DESCRIPTION": "SPECIFICATION",
-    "DETAILED DESCRIPTION": "SPECIFICATION",
-    "BRIEF DESCRIPTION": "SPECIFICATION",
-    "BACKGROUND": "SPECIFICATION",
-    "SUMMARY": "SPECIFICATION",
-    "FIELD": "SPECIFICATION",
+    "DESCRIPTION": "DESCRIPTION",
+    "DETAILED DESCRIPTION": "DESCRIPTION",
+    "BRIEF DESCRIPTION": "DESCRIPTION",
+    "FIELD": "DESCRIPTION",
     "OTHER": "OTHER",
 }
 
@@ -250,13 +253,13 @@ def infer_section_type(heading: str) -> SectionType:
         return "CLAIMS"
     if "ABSTRACT" in normalized:
         return "ABSTRACT"
-    if (
-        "SPECIFICATION" in normalized
-        or "DESCRIPTION" in normalized
-        or "BACKGROUND" in normalized
-        or "SUMMARY" in normalized
-        or "FIELD" in normalized
-    ):
+    if "BACKGROUND" in normalized:
+        return "BACKGROUND"
+    if "SUMMARY" in normalized:
+        return "SUMMARY"
+    if "DESCRIPTION" in normalized or "FIELD" in normalized:
+        return "DESCRIPTION"
+    if "SPECIFICATION" in normalized:
         return "SPECIFICATION"
     if "TITLE" in normalized:
         return "TITLE"

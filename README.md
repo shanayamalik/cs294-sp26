@@ -1,66 +1,36 @@
-# CS 294-184 Final Project Part 2: Programmatic Document Analysis for Patent Examination
+# Programmatic Patent Analysis Environment
 
-We design a programming-oriented document analysis environment where patent documents are treated as structured, queryable data. Instead of manual keyword search and scanning, examiners define reusable document-level queries over structure (sections, passages, metadata) to systematically retrieve and analyze relevant evidence.
+This repository contains a prototype environment for structured prior-art search and lightweight claim-chart drafting. The project treats patent documents as structured, queryable data rather than opaque full-text blobs, allowing searches over section type, passage content, metadata, and citation-relevant anchors.
 
-## Overview
-
-This prototype combines a FastAPI backend, a lightweight patent-query DSL, and a React frontend for passage-level retrieval over parsed patent documents. The current system supports multi-document querying, passage provenance, metadata-aware filtering, and an isolated claim-chart demo workflow for collecting retrieved evidence.
+The system combines a FastAPI backend, a small patent-query DSL, and a React frontend. It supports corpus scoping, passage-level retrieval, provenance-aware result inspection, and a connected claim-chart workflow for carrying evidence forward into downstream analysis.
 
 ## Repository Layout
 
-- `backend/` FastAPI + Python API, parser pipeline, query engine, DSL parser
-- `frontend/` React + Vite UI for running queries and viewing results
-- `docs/` MVP scope, architecture, and query examples
+- `backend/`: parser pipeline, normalized document model, DSL parser, query engine, FastAPI endpoints, and backend tests
+- `frontend/`: React and Vite application for corpus management, querying, result inspection, and claim-chart editing
+- `docs/`: project scope notes and example DSL queries
 
-## Current Features
+## Core Capabilities
 
-- Document model: `Document -> Section -> Passage`
-- Parser for constrained raw patent inputs (`.txt` and text-extractable `.pdf`)
-- Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
-- Query filters for section, phrase/regex containment, heading text, CPC, paragraph anchor, structural claim/figure filters, and metadata
-- Datamuse-backed reusable synonym expansion via `synonym_of:"term"` and `termset:"name"`
-- Metadata support for:
-  - exact match
-  - date and numeric comparison (`<`, `<=`, `>`, `>=`)
-  - substring and prefix match (`~`, `^`)
-  - convenience aliases such as `meta.pubDate`, `meta.published`, `meta.appNo`, `meta.filing`, `meta.appDate`, `meta.assigneeName`, and `meta.inventorName`
-  - derived helper fields such as `meta.priorityDate`, `meta.effectiveDate`, and `meta.admissibilityDate`
-- Query execution with provenance metadata, grouped by matched document
-- Frontend document picker for multi-document search
-- Result cards with document provenance, section metadata, neighboring context, and anchor badges when available (`paragraphId`, `claimNo`)
-- `Copy citation` and `Add to chart` actions on result cards
-- Separate `#claim-chart-demo` page for grouped evidence collection, TSV export, and DOCX claim-chart export
-- Live query refresh with a 600ms debounce for iterative query refinement
-
-## Example Queries
-
-```text
-section:SUMMARY AND contains:"normalizer task queue"
-section:CLAIMS AND paragraph:0042
-meta.filingDate:<2018-03-15 AND section:SPECIFICATION
-meta.pubDate:>=2019-01-01
-meta.assigneeName:~"Google"
-meta.inventorName:^"Anderson" AND contains:"virtual machine"
-meta.priorityDate:<2011-07-01
-meta.admissibilityDate:<2011-07-01
-contains:"server" OR contains:"network"
-contains.regex:"virtual\s+machine|hypervisor"
-synonym_of:"virtual machine"|max=5|topics="computer science software"
-termset:"virtual machine" AND section:DESCRIPTION
-NOT section:OTHER
-```
-
-More examples are in [docs/example-queries.md](docs/example-queries.md).
+- Structured patent model: `Document -> Section -> Passage`
+- Parsing for raw `.txt` patents and text-extractable `.pdf` patents
+- Passage-level query execution over structural, textual, and metadata predicates
+- Boolean composition with `AND`, `OR`, `NOT`, and parentheses
+- Filters for section, heading, phrase/regex containment, CPC, paragraph, claim, figure, and metadata
+- Synonym expansion support via `synonym_of:"term"` and curated `termset:"name"`
+- Provenance-rich results with section metadata, neighboring context, and passage anchors when available
+- Claim-chart workflow with evidence carry-forward and export support
+- Live query refinement with debounced frontend updates
 
 ## Quick Start
 
-1. Install frontend dependencies:
+1. Install JavaScript dependencies from the repository root.
 
 ```bash
 npm install
 ```
 
-2. Set up backend Python environment:
+2. Create and activate the backend virtual environment, then install Python dependencies.
 
 ```bash
 cd backend
@@ -70,41 +40,35 @@ pip install -r requirements.txt
 cd ..
 ```
 
-3. Start backend:
+3. Start the backend.
 
 ```bash
 npm run dev:backend
 ```
 
-4. In another terminal, start frontend:
+4. In a separate terminal, start the frontend.
 
 ```bash
 npm run dev:frontend
 ```
 
-5. Open the frontend URL printed by Vite (usually `http://localhost:5173`).
+5. Open the URL printed by Vite, typically `http://localhost:5173`.
 
-## Working With New Patents
+## Working With Patent Data
 
-- Add new source patents to `backend/data/raw/` as text-extractable `.pdf` files or `.txt` files.
-- Regenerate the parsed corpus with `npm run parse:raw`.
-- Parsed `backend/data/parsed/*.generated.json` files are treated as derived artifacts and are gitignored, so teammates should rerun `npm run parse:raw` after pulling new raw patent files.
+- Add raw source files to `backend/data/raw/`.
+- Run `npm run parse:raw` to regenerate parsed patent JSON.
+- Parsed outputs in `backend/data/parsed/` are derived artifacts and may need to be regenerated after pulling new raw data.
 
 ## Common Commands
 
-- `npm run dev:backend` - start FastAPI with auto-reload on port `4000`
-- `npm run dev:frontend` - start the Vite frontend
-- `npm run test:backend` - run backend unit tests with pytest
-- `npm run parse:raw` - parse supported files in `backend/data/raw/` into JSON
+- `npm run dev:backend`: start the FastAPI backend with reload
+- `npm run dev:frontend`: start the Vite frontend
+- `npm run test:backend`: run backend tests with pytest
+- `npm run parse:raw`: parse raw patent sources into normalized JSON
 
-## PDF Notes
+## Notes
 
-- PDF parsing currently uses text extraction (`pypdf`), not OCR.
-- If a PDF is image-only/scanned, run OCR first before ingestion.
-
-## Documentation
-
-- [docs/example-queries.md](docs/example-queries.md) - query examples
-- [docs/mvp-scope.md](docs/mvp-scope.md) - current scope and implemented MVP state
-- [docs/architecture.md](docs/architecture.md) - architecture notes
-- [docs/demo-ideas.md](docs/demo-ideas.md) - suggested walkthroughs and short demo story
+- PDF support currently depends on text extraction through `pypdf`; image-only PDFs require OCR before ingestion.
+- Example DSL queries are available in [docs/example-queries.md](docs/example-queries.md).
+- Current MVP scope notes are available in [docs/mvp-scope.md](docs/mvp-scope.md).

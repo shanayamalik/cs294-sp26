@@ -139,6 +139,13 @@ class OrExpression(BaseModel):
     expressions: list["QueryExpression"]
 
 
+class SynonymExpansion(BaseModel):
+    seed: str
+    terms: list[str]
+    max: int
+    topics: str
+
+
 QueryExpression = Annotated[
     Union[FilterExpression, NotExpression, AndExpression, OrExpression],
     Field(discriminator="kind"),
@@ -149,6 +156,7 @@ class Query(BaseModel):
     filters: list[QueryFilter] = Field(default_factory=list)
     groups: list[list[QueryClause]] | None = None
     expression: QueryExpression | None = None
+    synonymExpansions: list[SynonymExpansion] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def normalize_groups(self) -> "Query":

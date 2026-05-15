@@ -259,6 +259,42 @@ button:disabled {
   padding-right: 0.25rem;
 }
 
+.synonymSummary {
+  display: grid;
+  gap: 0.55rem;
+  margin: -0.45rem 0 0.9rem;
+}
+
+.synonymExpansion {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.synonymSeed {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.synonymTerms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.synonymTerm {
+  background: #eef7f4;
+  border: 1px solid #b8d8d1;
+  border-radius: 999px;
+  color: #245c53;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.22rem 0.55rem;
+}
+
 .resultCard {
   border: 1px solid #ddd1ba;
   border-radius: 8px;

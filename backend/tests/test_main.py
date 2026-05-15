@@ -1,9 +1,14 @@
 from pathlib import Path
 
 import app.main as main_module
+from app import synonym_sets
 from app.dsl_parser import parse_dsl
 from app.models import Document, DocumentMetadata, Passage, PreloadDocumentsRequest, Section
 from app.store import DocumentStore
+
+
+def setup_function() -> None:
+    synonym_sets.clear_saved_termsets()
 
 
 def test_preload_endpoint_hydrates_selected_documents(tmp_path: Path, monkeypatch) -> None:
@@ -25,14 +30,15 @@ def test_preload_endpoint_hydrates_selected_documents(tmp_path: Path, monkeypatc
     assert payload["stats"]["lazyLoads"] == 1
 
 
-def test_query_synonym_sets_endpoint_lists_available_builtins() -> None:
+def test_query_synonym_sets_endpoint_has_no_fixed_builtin_catalog() -> None:
     payload = main_module.query_synonym_sets()
 
-    assert payload["synonymSets"]
-    assert payload["synonymSets"][0]["seed"] in {"routing table", "virtual machine"}
+    assert payload["synonymSets"] == []
 
 
 def test_query_handler_supports_synonym_of(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(synonym_sets, "_fetch_datamuse_synonyms", lambda seed, max_results, topics: ("hypervisor",))
+
     parsed_dir = tmp_path / "parsed"
     parsed_dir.mkdir()
     document = _document("alpha", "Alpha Patent")
@@ -48,6 +54,22 @@ def test_query_handler_supports_synonym_of(tmp_path: Path, monkeypatch) -> None:
 
     assert payload["result"]["totalMatches"] == 1
     assert any('hypervisor' in reason for reason in payload["result"]["matches"][0]["reasons"])
+    assert payload["synonymExpansions"] == [
+        {
+            "seed": "virtual machine",
+            "terms": ["virtual machine", "hypervisor"],
+            "max": synonym_sets.DATAMUSE_MAX_RESULTS,
+            "topics": synonym_sets.DATAMUSE_TOPICS,
+        }
+    ]
+
+    termset_payload = main_module.run_query(main_module.QueryRequest(documentIds=["alpha"], queryText='termset:"virtual machine"'))
+
+    assert termset_payload["result"]["totalMatches"] == 1
+    assert termset_payload["synonymExpansions"] == []
+    assert main_module.query_synonym_sets()["synonymSets"] == [
+        {"seed": "virtual machine", "terms": ["virtual machine", "hypervisor"]}
+    ]
 
 
 def test_documents_endpoint_includes_metadata_facet_summaries(tmp_path: Path, monkeypatch) -> None:

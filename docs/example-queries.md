@@ -30,11 +30,12 @@
 28. `section:DESCRIPTION AND contains:"sensor data"`
 29. `synonym_of:"virtual machine"`
 30. `section:DESCRIPTION AND synonym_of:"routing table"`
-31. `termset:"virtual machine"`
-32. `section:DESCRIPTION AND termset:"routing table"`
-33. `claim:8`
-34. `claim:12 AND contains:"standby mode"`
-35. `figure:"FIG. 2"`
-36. `section:DESCRIPTION AND figure:"FIG. 4"`
-37. `heading:"Detailed Description" AND contains:"virtual machine"`
-38. `sectionTitle:"Background" AND contains:"migration"`
+31. `synonym_of:"virtual machine"|max=5|topics="computer science software"`
+32. `termset:"virtual machine"`
+33. `section:DESCRIPTION AND termset:"routing table"`
+34. `claim:8`
+35. `claim:12 AND contains:"standby mode"`
+36. `figure:"FIG. 2"`
+37. `section:DESCRIPTION AND figure:"FIG. 4"`
+38. `heading:"Detailed Description" AND contains:"virtual machine"`
+39. `sectionTitle:"Background" AND contains:"migration"`

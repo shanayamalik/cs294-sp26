@@ -18,9 +18,10 @@ from .models import (
     Query,
     QueryExpression,
     SectionFilter,
+    SynonymExpansion,
     coerce_section_type,
 )
-from .synonym_sets import synonym_contains_filters
+from .synonym_sets import DATAMUSE_MAX_RESULTS, DATAMUSE_TOPICS, expand_synonym_seed, termset_contains_filters
 
 
 @dataclass
@@ -37,7 +38,7 @@ def parse_dsl(query_text: str) -> Query:
     tokens = _tokenize(trimmed)
     parser = _ExpressionParser(tokens)
     expression = parser.parse()
-    return Query(expression=expression)
+    return Query(expression=expression, synonymExpansions=parser.synonym_expansions)
 
 
 def _operator_at(query_text: str, index: int, operator: str) -> bool:
@@ -111,6 +112,7 @@ class _ExpressionParser:
     def __init__(self, tokens: list[_Token]) -> None:
         self.tokens = tokens
         self.index = 0
+        self.synonym_expansions: list[SynonymExpansion] = []
 
     def parse(self) -> QueryExpression:
         expression = self._parse_or()
@@ -155,7 +157,7 @@ class _ExpressionParser:
             raise ValueError(f"Expected query clause, got {token.value}.")
 
         self.index += 1
-        parsed_clause = _parse_clause(token.value)
+        parsed_clause = _parse_clause(token.value, self.synonym_expansions)
         return parsed_clause if isinstance(parsed_clause, (FilterExpression, AndExpression, OrExpression, NotExpression)) else FilterExpression(kind="filter", filter=parsed_clause)
 
     def _match(self, kind: str) -> bool:
@@ -169,17 +171,26 @@ class _ExpressionParser:
         return self.tokens[self.index] if self.index < len(self.tokens) else None
 
 
-def _parse_clause(clause: str):
-    synonym_match = re.match(r'^(synonym_of|termset):(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
-    if synonym_match:
-        operator = synonym_match.group(1).lower()
-        seed = (synonym_match.group(2) or synonym_match.group(3) or "").strip()
+def _parse_clause(clause: str, synonym_expansions: list[SynonymExpansion]):
+    if re.match(r"^synonym_of:", clause, flags=re.IGNORECASE):
+        seed, max_results, topics = _parse_synonym_of_clause(clause)
+        terms = expand_synonym_seed(seed, max_results=max_results, topics=topics)
+        synonym_expansions.append(SynonymExpansion(seed=seed, terms=terms, max=max_results, topics=topics))
+        contains_expressions = [
+            FilterExpression(kind="filter", filter=ContainsFilter(kind="contains", value=term))
+            for term in terms
+        ]
+        return contains_expressions[0] if len(contains_expressions) == 1 else OrExpression(kind="or", expressions=contains_expressions)
+
+    termset_match = re.match(r'^termset:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if termset_match:
+        seed = (termset_match.group(1) or termset_match.group(2) or "").strip()
         if not seed:
-            raise ValueError(f"{operator} filter requires a non-empty term.")
+            raise ValueError("termset filter requires a non-empty termset name.")
 
         contains_expressions = [
             FilterExpression(kind="filter", filter=contains_filter)
-            for contains_filter in synonym_contains_filters(seed)
+            for contains_filter in termset_contains_filters(seed)
         ]
         return contains_expressions[0] if len(contains_expressions) == 1 else OrExpression(kind="or", expressions=contains_expressions)
 
@@ -247,3 +258,82 @@ def _parse_clause(clause: str):
         return MetadataFilter(kind="metadata", field=field, operator=operator, value=value)
 
     raise ValueError(f"Unsupported clause: {clause}")
+
+
+def _parse_synonym_of_clause(clause: str) -> tuple[str, int, str]:
+    parts = _split_pipe_options(clause)
+    synonym_match = re.match(r'^synonym_of:(?:"([^"]+)"|(.+))$', parts[0], flags=re.IGNORECASE)
+    if not synonym_match:
+        raise ValueError("synonym_of filter requires a non-empty term.")
+
+    seed = (synonym_match.group(1) or synonym_match.group(2) or "").strip()
+    if not seed:
+        raise ValueError("synonym_of filter requires a non-empty term.")
+
+    max_results = DATAMUSE_MAX_RESULTS
+    topics = DATAMUSE_TOPICS
+    seen_options: set[str] = set()
+
+    for option in parts[1:]:
+        option_match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)=(.+)$", option)
+        if not option_match:
+            raise ValueError(f"Invalid synonym_of option: {option}")
+
+        key = option_match.group(1).strip().lower()
+        value = _unquote_option_value(option_match.group(2).strip())
+        if key in seen_options:
+            raise ValueError(f"Duplicate synonym_of option: {key}")
+        seen_options.add(key)
+
+        if key == "max":
+            try:
+                max_results = int(value)
+            except ValueError as error:
+                raise ValueError("synonym_of max option must be a positive integer.") from error
+            if max_results < 1:
+                raise ValueError("synonym_of max option must be a positive integer.")
+            continue
+
+        if key == "topics":
+            topics = value.strip()
+            if not topics:
+                raise ValueError("synonym_of topics option requires a non-empty value.")
+            continue
+
+        raise ValueError(f"Unsupported synonym_of option: {key}")
+
+    return seed, max_results, topics
+
+
+def _split_pipe_options(clause: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    in_quotes = False
+
+    for character in clause:
+        if character == '"':
+            in_quotes = not in_quotes
+            current.append(character)
+            continue
+
+        if character == "|" and not in_quotes:
+            part = "".join(current).strip()
+            if not part:
+                raise ValueError("Empty synonym_of option.")
+            parts.append(part)
+            current = []
+            continue
+
+        current.append(character)
+
+    part = "".join(current).strip()
+    if not part:
+        raise ValueError("Empty synonym_of option.")
+    parts.append(part)
+    return parts
+
+
+def _unquote_option_value(value: str) -> str:
+    if value.startswith('"') and value.endswith('"') and len(value) >= 2:
+        return value[1:-1]
+    return value

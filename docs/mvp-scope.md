@@ -19,7 +19,7 @@
   - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
   - `heading:"text"` / `sectionTitle:"text"` for case-insensitive section-heading substring matching
-  - `synonym_of:"term"` / `termset:"name"` for deterministic built-in synonym expansion into ordinary passage text matching
+  - `synonym_of:"term"` / `termset:"name"` for Datamuse-backed synonym expansion into ordinary passage text matching, with optional `|max=N|topics="..."` modifiers on `synonym_of`
   - `claim:NN` for direct claim-number filtering
   - `figure:"FIG. N"` for filtering passages annotated with figure references
   - `meta.KEY:"value"`
@@ -140,11 +140,11 @@
   vs document-level search) and difference in part of workflow (find relevant potentially relevant docs -> determine 
   relevance of docs and find specific pieces of evidence)
 
-  - ~~built-in synonyms with `synonym_of:"term"`~~ **done**
-    - current implementation: deterministic built-in synonym seeds expand into ordinary `contains:` filters at parse time, and the same built-in sets are also exposed through `termset:"name"` for a more reusable DSL surface
+  - ~~synonym expansion with `synonym_of:"term"`~~ **done**
+    - current implementation: `synonym_of:"term"|max=N|topics="..."` fetches Datamuse terms, saves them as a reusable in-memory term set, returns the used expansion in the query response, and both `synonym_of:` and later `termset:"term"` queries expand to ordinary `contains:` filters at parse time
     - justification / need-finding relation: even though broad synonym discovery often happens earlier in document-level search, this still provides a proof-of-concept for helping examiners when they lack comprehensive vocabulary coverage during passage-level analysis
     - remaining follow-up ideas:
-      - add UI support that shows the available built-in synonym seeds and the exact expanded terms before the query runs
+      - add UI support that shows the Datamuse-expanded terms before the query runs
       - consider corpus-assisted suggestion from the currently selected documents as the next synonym-expansion layer
       - keep LLM-backed synonym suggestion optional and deferred, rather than making live query execution depend on it
       - avoid relying on general lexical resources like WordNet as the main solution, since they are likely too general and weak for patent-examiner workflows

@@ -110,7 +110,11 @@ def run_query(payload: QueryRequest):
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     result = execute_query_across_documents(documents, query)
-    return {"query": query.model_dump(), "result": result.model_dump()}
+    return {
+        "query": query.model_dump(),
+        "result": result.model_dump(),
+        "synonymExpansions": [expansion.model_dump() for expansion in query.synonymExpansions],
+    }
 
 
 def _filename_to_id(file_name: str) -> str:

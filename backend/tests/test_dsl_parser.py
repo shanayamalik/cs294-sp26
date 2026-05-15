@@ -1,4 +1,9 @@
+from app import synonym_sets
 from app.dsl_parser import parse_dsl
+
+
+def setup_function() -> None:
+    synonym_sets.clear_saved_termsets()
 
 
 def test_parse_section_contains_query() -> None:
@@ -45,7 +50,13 @@ def test_parse_section_title_alias_query() -> None:
     assert query.filters[0].value == "Background of the Invention"
 
 
-def test_parse_synonym_of_query_expands_to_contains_or_expression() -> None:
+def test_parse_synonym_of_query_expands_to_contains_or_expression(monkeypatch) -> None:
+    monkeypatch.setattr(
+        synonym_sets,
+        "_fetch_datamuse_synonyms",
+        lambda seed, max_results, topics: ("hypervisor", "guest operating system", "virtual machine"),
+    )
+
     query = parse_dsl('synonym_of:"virtual machine"')
 
     assert query.expression is not None
@@ -55,9 +66,69 @@ def test_parse_synonym_of_query_expands_to_contains_or_expression() -> None:
         "hypervisor",
         "guest operating system",
     }
+    assert synonym_sets.expand_termset("virtual machine") == [
+        "virtual machine",
+        "hypervisor",
+        "guest operating system",
+    ]
+    assert query.synonymExpansions[0].model_dump() == {
+        "seed": "virtual machine",
+        "terms": ["virtual machine", "hypervisor", "guest operating system"],
+        "max": synonym_sets.DATAMUSE_MAX_RESULTS,
+        "topics": synonym_sets.DATAMUSE_TOPICS,
+    }
 
 
-def test_parse_termset_query_expands_to_contains_or_expression() -> None:
+def test_parse_synonym_of_query_supports_max_and_topics_options(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_fetch(seed: str, max_results: int, topics: str) -> tuple[str, ...]:
+        captured["seed"] = seed
+        captured["max"] = max_results
+        captured["topics"] = topics
+        return ("hypervisor",)
+
+    monkeypatch.setattr(synonym_sets, "_fetch_datamuse_synonyms", fake_fetch)
+
+    query = parse_dsl('synonym_of:"virtual machine"|max=3|topics="cloud computing patents"')
+
+    assert {query_filter.value for query_filter in query.filters if query_filter.kind == "contains"} == {
+        "virtual machine",
+        "hypervisor",
+    }
+    assert captured == {"seed": "virtual machine", "max": 3, "topics": "cloud computing patents"}
+    assert query.synonymExpansions[0].model_dump() == {
+        "seed": "virtual machine",
+        "terms": ["virtual machine", "hypervisor"],
+        "max": 3,
+        "topics": "cloud computing patents",
+    }
+
+
+def test_parse_synonym_of_rejects_unsupported_options() -> None:
+    try:
+        parse_dsl('synonym_of:"virtual machine"|mode=rel_syn')
+        raise AssertionError("Expected parse_dsl to raise ValueError")
+    except ValueError as error:
+        assert "Unsupported synonym_of option: mode" in str(error)
+
+
+def test_parse_synonym_of_rejects_invalid_max() -> None:
+    try:
+        parse_dsl('synonym_of:"virtual machine"|max=0')
+        raise AssertionError("Expected parse_dsl to raise ValueError")
+    except ValueError as error:
+        assert "synonym_of max option must be a positive integer." in str(error)
+
+
+def test_parse_termset_query_expands_saved_synonyms_to_contains_or_expression(monkeypatch) -> None:
+    monkeypatch.setattr(
+        synonym_sets,
+        "_fetch_datamuse_synonyms",
+        lambda seed, max_results, topics: ("forwarding table", "fib", "routing cache"),
+    )
+
+    parse_dsl('synonym_of:"routing table"')
     query = parse_dsl('termset:"routing table"')
 
     assert query.expression is not None
@@ -65,18 +136,22 @@ def test_parse_termset_query_expands_to_contains_or_expression() -> None:
     assert {query_filter.value for query_filter in query.filters if query_filter.kind == "contains"} == {
         "routing table",
         "forwarding table",
-        "FIB",
+        "fib",
         "routing cache",
     }
 
 
-def test_parse_synonym_of_unknown_seed_raises_helpful_error() -> None:
+def test_parse_synonym_of_datamuse_failure_raises_helpful_error(monkeypatch) -> None:
+    def fail_fetch(seed: str, max_results: int, topics: str) -> tuple[str, ...]:
+        raise ValueError(f'Unable to fetch synonyms for "{seed}" from Datamuse.')
+
+    monkeypatch.setattr(synonym_sets, "_fetch_datamuse_synonyms", fail_fetch)
+
     try:
         parse_dsl('synonym_of:"unknown term"')
         raise AssertionError("Expected parse_dsl to raise ValueError")
     except ValueError as error:
-        assert 'Unknown synonym seed: "unknown term"' in str(error)
-        assert '"routing table"' in str(error)
+        assert 'Unable to fetch synonyms for "unknown term" from Datamuse.' in str(error)
 
 
 def test_parse_termset_unknown_seed_raises_helpful_error() -> None:
@@ -84,8 +159,8 @@ def test_parse_termset_unknown_seed_raises_helpful_error() -> None:
         parse_dsl('termset:"unknown term"')
         raise AssertionError("Expected parse_dsl to raise ValueError")
     except ValueError as error:
-        assert 'Unknown synonym seed: "unknown term"' in str(error)
-        assert '"virtual machine"' in str(error)
+        assert 'Unknown termset: "unknown term"' in str(error)
+        assert 'Run synonym_of:"unknown term" first' in str(error)
 
 
 def test_parse_unsupported_clause() -> None:

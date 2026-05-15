@@ -18,7 +18,7 @@ This prototype combines a FastAPI backend, a lightweight patent-query DSL, and a
 - Parser for constrained raw patent inputs (`.txt` and text-extractable `.pdf`)
 - Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
 - Query filters for section, phrase/regex containment, heading text, CPC, paragraph anchor, structural claim/figure filters, and metadata
-- Built-in reusable synonym expansion via `synonym_of:"term"` and `termset:"name"`
+- Datamuse-backed reusable synonym expansion via `synonym_of:"term"` and `termset:"name"`
 - Metadata support for:
   - exact match
   - date and numeric comparison (`<`, `<=`, `>`, `>=`)
@@ -45,6 +45,7 @@ meta.priorityDate:<2011-07-01
 meta.admissibilityDate:<2011-07-01
 contains:"server" OR contains:"network"
 contains.regex:"virtual\s+machine|hypervisor"
+synonym_of:"virtual machine"|max=5|topics="computer science software"
 termset:"virtual machine" AND section:DESCRIPTION
 NOT section:OTHER
 ```

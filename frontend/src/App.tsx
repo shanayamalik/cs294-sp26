@@ -11,6 +11,12 @@ type DocumentSummary = {
 };
 
 type QueryResponse = {
+  synonymExpansions?: Array<{
+    seed: string;
+    terms: string[];
+    max: number;
+    topics: string;
+  }>;
   result: {
     totalMatches: number;
     matches: Array<{
@@ -42,6 +48,8 @@ type HighlightSpan = {
   start: number;
   end: number;
 };
+
+type SynonymExpansion = NonNullable<QueryResponse["synonymExpansions"]>[number];
 
 export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
@@ -119,7 +127,10 @@ export default function App() {
 
   const visibleDocumentIds = useMemo(() => new Set(visibleDocuments.map((doc) => doc.id)), [visibleDocuments]);
 
-  const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+  const highlightTerms = useMemo(
+    () => mergeHighlightTerms(extractHighlightTerms(submittedQueryText), extractSynonymHighlightTerms(queryResult?.synonymExpansions ?? [])),
+    [queryResult?.synonymExpansions, submittedQueryText]
+  );
 
   useEffect(() => {
     if (selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0) {
@@ -497,6 +508,22 @@ export default function App() {
         <p className="subtitle">
           {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
         </p>
+        {queryResult?.synonymExpansions?.length ? (
+          <div className="synonymSummary" aria-label="Synonyms used">
+            {queryResult.synonymExpansions.map((expansion) => (
+              <div key={`${expansion.seed}:${expansion.max}:${expansion.topics}`} className="synonymExpansion">
+                <span className="synonymSeed">{expansion.seed}</span>
+                <div className="synonymTerms">
+                  {expansion.terms.map((term) => (
+                    <span key={term} className="synonymTerm">
+                      {term}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="results">
           {queryResult?.result.matches.map((match) => {
@@ -648,6 +675,27 @@ function extractHighlightTerms(queryText: string) {
 
   const uniqueTerms = new Map<string, HighlightTerm>();
   for (const term of terms.filter((term) => term.value)) {
+    const key = term.value.toLowerCase();
+    const existing = uniqueTerms.get(key);
+    uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);
+  }
+
+  return [...uniqueTerms.values()].sort((left, right) => right.value.length - left.value.length);
+}
+
+function extractSynonymHighlightTerms(expansions: SynonymExpansion[]) {
+  return expansions.flatMap((expansion) =>
+    expansion.terms.map((term) => ({
+      value: term,
+      allowRegex: false,
+    }))
+  );
+}
+
+function mergeHighlightTerms(...termGroups: HighlightTerm[][]) {
+  const uniqueTerms = new Map<string, HighlightTerm>();
+
+  for (const term of termGroups.flat().filter((term) => term.value)) {
     const key = term.value.toLowerCase();
     const existing = uniqueTerms.get(key);
     uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);

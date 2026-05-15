@@ -170,11 +170,12 @@ class _ExpressionParser:
 
 
 def _parse_clause(clause: str):
-    synonym_match = re.match(r'^synonym_of:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    synonym_match = re.match(r'^(synonym_of|termset):(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if synonym_match:
-        seed = (synonym_match.group(1) or synonym_match.group(2) or "").strip()
+        operator = synonym_match.group(1).lower()
+        seed = (synonym_match.group(2) or synonym_match.group(3) or "").strip()
         if not seed:
-            raise ValueError("synonym_of filter requires a non-empty term.")
+            raise ValueError(f"{operator} filter requires a non-empty term.")
 
         contains_expressions = [
             FilterExpression(kind="filter", filter=contains_filter)

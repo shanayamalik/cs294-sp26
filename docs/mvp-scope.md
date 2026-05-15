@@ -19,7 +19,7 @@
   - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
   - `heading:"text"` / `sectionTitle:"text"` for case-insensitive section-heading substring matching
-  - `synonym_of:"term"` for deterministic built-in synonym expansion into ordinary passage text matching
+  - `synonym_of:"term"` / `termset:"name"` for deterministic built-in synonym expansion into ordinary passage text matching
   - `claim:NN` for direct claim-number filtering
   - `figure:"FIG. N"` for filtering passages annotated with figure references
   - `meta.KEY:"value"`
@@ -44,6 +44,7 @@
   - match reasons
 - Frontend document picker supports searching across multiple documents
 - Frontend document picker now exposes assignee and inventor facets so metadata can narrow the active document set before querying
+- Frontend document picker now uses a simplified, title-first document list so uneven metadata extraction does not dominate corpus selection
 - Frontend result cards show which document each hit came from
 - Frontend result cards show paragraph / claim anchor badges when available
 - Frontend result cards support `Copy citation` for lightweight claim-mapping handoff
@@ -55,6 +56,7 @@
 - Parsed document metadata can now be preprocessed into sidecar metadata files so startup indexing avoids reading full passage bodies
 - Frontend can opportunistically preload currently selected documents after user interaction instead of waiting for the first query to hydrate them one by one
 - Demo corpus includes parsed sample patent data and multiple USPTO patent PDFs
+- Demo corpus has been expanded beyond the original 6-document set and benchmarked on a larger synthetic 30-document corpus derived from the current parsed collection
 - Supported demo queries are captured in [example-queries.md](example-queries.md)
 
 ## Goal Features
@@ -69,7 +71,7 @@
   - recommended focus:
     - ~~add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them~~ **done**
     - remaining action items:
-      - decide whether to keep synonym support as `synonym_of:"term"` only or also add a reusable `termset:` style syntax for named synonym groups
+      - ~~decide whether to keep synonym support as `synonym_of:"term"` only or also add a reusable `termset:` style syntax for named synonym groups~~ **done**
       - decide whether the next layer of synonym support should live in the UI as query-building assistance, in the DSL itself, or in a hybrid model
       - consider corpus-assisted synonym suggestions from the currently selected documents before adding any LLM-backed suggestion flow
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
@@ -100,7 +102,7 @@
   - ~~add opportunistic preloading for the currently selected documents after user interaction~~ **done**
   - ~~add backend instrumentation so lazy loads, cache hits, and preload requests can be observed directly~~ **done**
   - remaining action items:
-    - benchmark this behavior against a meaningfully larger corpus instead of only the current demo set
+    - ~~benchmark this behavior against a meaningfully larger corpus instead of only the current demo set~~ **done**
     - decide whether preload signals should expand beyond explicit selection to recent queries or likely-next documents
     - design a cache/eviction policy so preloading remains helpful on larger document groups
     - decide whether any additional preprocessing should happen ahead of time for thousands of pre-selected documents beyond metadata sidecars
@@ -118,7 +120,7 @@
   - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
 - Lower priority / important for polish or validation:
   - document the legal limits of the helper-based date fields before extending them further, so the tool stays honest about what is heuristic versus legally definitive
-  - benchmark lazy-load / preload behavior on a larger corpus and define concrete acceptance targets for startup latency, first-query latency, and memory use
+  - define concrete acceptance targets for startup latency, first-query latency, and memory use on larger corpora
 - Likely defer unless time remains:
   - smarter preload prediction beyond explicit document selection
   - USPTO integration surfaces such as an extension or API-backed search bridge
@@ -139,7 +141,7 @@
   relevance of docs and find specific pieces of evidence)
 
   - ~~built-in synonyms with `synonym_of:"term"`~~ **done**
-    - current implementation: deterministic built-in synonym seeds expand into ordinary `contains:` filters at parse time, so the execution engine stays transparent and testable
+    - current implementation: deterministic built-in synonym seeds expand into ordinary `contains:` filters at parse time, and the same built-in sets are also exposed through `termset:"name"` for a more reusable DSL surface
     - justification / need-finding relation: even though broad synonym discovery often happens earlier in document-level search, this still provides a proof-of-concept for helping examiners when they lack comprehensive vocabulary coverage during passage-level analysis
     - remaining follow-up ideas:
       - add UI support that shows the available built-in synonym seeds and the exact expanded terms before the query runs

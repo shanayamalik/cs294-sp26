@@ -57,6 +57,19 @@ def test_parse_synonym_of_query_expands_to_contains_or_expression() -> None:
     }
 
 
+def test_parse_termset_query_expands_to_contains_or_expression() -> None:
+    query = parse_dsl('termset:"routing table"')
+
+    assert query.expression is not None
+    assert query.expression.kind == "or"
+    assert {query_filter.value for query_filter in query.filters if query_filter.kind == "contains"} == {
+        "routing table",
+        "forwarding table",
+        "FIB",
+        "routing cache",
+    }
+
+
 def test_parse_synonym_of_unknown_seed_raises_helpful_error() -> None:
     try:
         parse_dsl('synonym_of:"unknown term"')
@@ -64,6 +77,15 @@ def test_parse_synonym_of_unknown_seed_raises_helpful_error() -> None:
     except ValueError as error:
         assert 'Unknown synonym seed: "unknown term"' in str(error)
         assert '"routing table"' in str(error)
+
+
+def test_parse_termset_unknown_seed_raises_helpful_error() -> None:
+    try:
+        parse_dsl('termset:"unknown term"')
+        raise AssertionError("Expected parse_dsl to raise ValueError")
+    except ValueError as error:
+        assert 'Unknown synonym seed: "unknown term"' in str(error)
+        assert '"virtual machine"' in str(error)
 
 
 def test_parse_unsupported_clause() -> None:

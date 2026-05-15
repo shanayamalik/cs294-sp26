@@ -56,7 +56,7 @@
 - Parsed document metadata can now be preprocessed into sidecar metadata files so startup indexing avoids reading full passage bodies
 - Frontend can opportunistically preload currently selected documents after user interaction instead of waiting for the first query to hydrate them one by one
 - Demo corpus includes parsed sample patent data and multiple USPTO patent PDFs
-- Demo corpus has been expanded beyond the original 6-document set and benchmarked on a larger synthetic 30-document corpus derived from the current parsed collection
+- Demo corpus has been expanded beyond the original 6-document set to a larger working set and benchmarked on a synthetic 30-document corpus derived from the current parsed collection
 - Supported demo queries are captured in [example-queries.md](example-queries.md)
 
 ## Goal Features

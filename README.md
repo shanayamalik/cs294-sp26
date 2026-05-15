@@ -106,3 +106,4 @@ npm run dev:frontend
 - [docs/example-queries.md](docs/example-queries.md) - query examples
 - [docs/mvp-scope.md](docs/mvp-scope.md) - current scope and implemented MVP state
 - [docs/architecture.md](docs/architecture.md) - architecture notes
+- [docs/demo-ideas.md](docs/demo-ideas.md) - suggested walkthroughs and short demo story

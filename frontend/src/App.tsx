@@ -54,7 +54,7 @@ export default function App({ demoMode = false }: AppProps) {
   const [selectedInventorFacets, setSelectedInventorFacets] = useState<string[]>([]);
   const [assigneeFacetQuery, setAssigneeFacetQuery] = useState("");
   const [inventorFacetQuery, setInventorFacetQuery] = useState("");
-  const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
+  const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"virtual network"');
   const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -123,7 +123,41 @@ export default function App({ demoMode = false }: AppProps) {
 
   const visibleDocumentIds = useMemo(() => new Set(visibleDocuments.map((doc) => doc.id)), [visibleDocuments]);
 
+  const rankedVisibleDocuments = useMemo(() => {
+    if (!demoMode) {
+      return visibleDocuments;
+    }
+
+    const selectedIdSet = new Set(selectedDocumentIds);
+    return [...visibleDocuments].sort((left, right) => {
+      const leftSelected = selectedIdSet.has(left.id);
+      const rightSelected = selectedIdSet.has(right.id);
+
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      return left.title.localeCompare(right.title);
+    });
+  }, [demoMode, selectedDocumentIds, visibleDocuments]);
+
+  const demoQueryPills = useMemo(() => {
+    if (!demoMode) {
+      return [] as string[];
+    }
+
+    const pills = [`${selectedDocumentIds.length} selected patents`];
+    const totalMetadataFilters = selectedAssigneeFacets.length + selectedInventorFacets.length;
+
+    if (totalMetadataFilters > 0) {
+      pills.push(totalMetadataFilters === 1 ? "1 metadata filter" : `${totalMetadataFilters} metadata filters`);
+    }
+
+    return pills;
+  }, [demoMode, selectedAssigneeFacets.length, selectedDocumentIds.length, selectedInventorFacets.length]);
+
   const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+  const hasSubmittedQuery = submittedQueryText.trim().length > 0;
 
   useEffect(() => {
     if (selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0) {
@@ -384,12 +418,6 @@ export default function App({ demoMode = false }: AppProps) {
                 : <>Document → Section → Passage querying with a minimal DSL. <a href="#claim-chart-demo">Try claim chart demo →</a></>}
             </p>
           </div>
-          {demoMode ? (
-            <div className="demoPanelLinks">
-              <a href="#claim-chart-demo">Claim chart</a>
-              <a href="/">Original page</a>
-            </div>
-          ) : null}
         </div>
 
         <form onSubmit={onSubmit} className="queryForm">
@@ -463,64 +491,139 @@ export default function App({ demoMode = false }: AppProps) {
                 {inventorFacetQuery.trim() && visibleInventorFacets.length === 0 ? <p className="facetHint">No inventors match that filter.</p> : null}
               </div>
             ) : null}
+            {demoMode && (selectedAssigneeFacets.length > 0 || selectedInventorFacets.length > 0) ? (
+              <div className="demoFacetResetRow">
+                <span className="facetHint">Reset filters to bring the full patent list back.</span>
+                <button type="button" className="demoFacetResetButton" onClick={clearMetadataFacets}>
+                  Clear facets
+                </button>
+              </div>
+            ) : null}
             <div className="documentPickerActions">
-              <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
-                Select visible
-              </button>
-              <button type="button" className="secondaryButton" onClick={clearDocuments}>
-                Clear
-              </button>
-              <button
-                type="button"
-                className="secondaryButton"
-                onClick={clearMetadataFacets}
-                disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
-              >
-                Clear facets
-              </button>
+              {!demoMode ? (
+                <>
+                  <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
+                    Select visible
+                  </button>
+                  <button type="button" className="secondaryButton" onClick={clearDocuments}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    onClick={clearMetadataFacets}
+                    disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
+                  >
+                    Clear facets
+                  </button>
+                </>
+              ) : null}
             </div>
-            <div className="documentOptions">
-              {visibleDocuments.map((doc) => (
-                <label key={doc.id} className="documentOption">
-                  <input
-                    type="checkbox"
-                    checked={selectedDocumentIds.includes(doc.id)}
-                    onChange={() => toggleDocument(doc.id)}
-                  />
-                  <span>
-                    <strong>{doc.title}</strong>
-                    <code>{doc.id}</code>
-                  </span>
-                </label>
-              ))}
-              {visibleDocuments.length === 0 ? <p className="subtitle">No documents match the current metadata facets.</p> : null}
+            <div className={`documentOptions${demoMode ? " demoDocumentOptions" : ""}`}>
+              {demoMode ? (
+                <div className="demoDocumentListHeader">
+                  <span>Selected patents</span>
+                  <div className="demoDocumentListHeaderActions">
+                    <span>{selectedDocumentIds.length} chosen</span>
+                    <button type="button" className="demoDocumentHeaderButton" onClick={selectAllDocuments}>
+                      Select filtered
+                    </button>
+                    <button type="button" className="demoDocumentHeaderButton" onClick={clearDocuments}>
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {rankedVisibleDocuments.map((doc) => {
+                const selected = selectedDocumentIds.includes(doc.id);
+
+                return (
+                  <label key={doc.id} className={`documentOption${selected && demoMode ? " documentOptionSelected" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleDocument(doc.id)}
+                    />
+                    <span>
+                      <strong>{doc.title}</strong>
+                      <code>{doc.id}</code>
+                    </span>
+                  </label>
+                );
+              })}
+              {visibleDocuments.length === 0 ? (
+                <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+                  <strong className="stateCardTitle">No patents match the current filters</strong>
+                  <p className="stateCardText">Try clearing metadata facets or broadening the assignee and inventor filters.</p>
+                </div>
+              ) : null}
             </div>
           </fieldset>
 
-          <label>
-            Query DSL
-            <textarea
-              rows={demoMode ? 2 : 3}
-              value={queryText}
-              onChange={(event) => {
-                setLiveQueryEnabled(true);
-                setQueryText(event.target.value);
-              }}
-              spellCheck={false}
-            />
-          </label>
-
           {demoMode ? (
-            <p className="demoQueryHint">
-              Start with corpus selection, then refine by structure or metadata. This variant is only testing typography, color, and hierarchy.
-            </p>
-          ) : null}
+            <div className="demoQueryShell">
+              <div className="demoQueryToolbar">
+                <div className="demoQueryMeta">
+                  <strong>Query DSL</strong>
+                  <p>Searching passages inside the current filtered corpus.</p>
+                </div>
+                {queryResult ? <span className="demoQueryCount">{queryResult.result.totalMatches} matches last run</span> : null}
+              </div>
 
-          <div className={demoMode ? "demoQueryActions" : undefined}>
-            <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
-              {loading ? "Running..." : "Run Query"}
-            </button>
-          </div>
+              {demoQueryPills.length > 0 ? (
+                <div className="demoQueryPills">
+                  {demoQueryPills.map((pill) => (
+                    <span key={pill} className="demoQueryPill">
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              <label className="demoQueryField">
+                <span className="demoQueryFieldLabel">Draft query</span>
+                <textarea
+                  rows={3}
+                  value={queryText}
+                  onChange={(event) => {
+                    setLiveQueryEnabled(true);
+                    setQueryText(event.target.value);
+                  }}
+                  spellCheck={false}
+                />
+              </label>
+
+              <div className="demoQueryFooter">
+                <p className="demoQueryHint">Start with section and phrase matching, then narrow only if needed.</p>
+                <div className="demoQueryActions">
+                  <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
+                    {loading ? "Running..." : "Search passages"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <label>
+                Query DSL
+                <textarea
+                  rows={3}
+                  value={queryText}
+                  onChange={(event) => {
+                    setLiveQueryEnabled(true);
+                    setQueryText(event.target.value);
+                  }}
+                  spellCheck={false}
+                />
+              </label>
+
+              <div>
+                <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
+                  {loading ? "Running..." : "Run Query"}
+                </button>
+              </div>
+            </>
+          )}
         </form>
 
         {selectedDocuments.length > 0 ? (
@@ -536,7 +639,12 @@ export default function App({ demoMode = false }: AppProps) {
           )
         ) : null}
 
-        {error ? <div className="error">{error}</div> : null}
+        {error ? (
+          <div className={`stateCard stateCardError${demoMode ? " demoStateCard" : ""}`}>
+            <strong className="stateCardTitle">Something went wrong</strong>
+            <p className="stateCardText error">{error}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className={`panel${demoMode ? " demoResultsPanel" : ""}`}>
@@ -551,7 +659,28 @@ export default function App({ demoMode = false }: AppProps) {
         </div>
 
         <div className="results">
-          {queryResult?.result.matches.map((match) => {
+          {loading ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">Running query</strong>
+              <p className="stateCardText">Checking the selected patents and loading the matching passages.</p>
+            </div>
+          ) : queryResult && queryResult.result.matches.length === 0 ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">No matching passages</strong>
+              <p className="stateCardText">Try a broader phrase, remove a metadata filter, or search a larger patent selection.</p>
+            </div>
+          ) : !queryResult ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">No results yet</strong>
+              <p className="stateCardText">
+                {selectedDocumentIds.length === 0
+                  ? "Select at least one patent, then run a query to inspect passages."
+                  : hasSubmittedQuery
+                    ? "Run another query to inspect passages in the current patent selection."
+                    : "Run a query to inspect passages in the current patent selection."}
+              </p>
+            </div>
+          ) : queryResult?.result.matches.map((match) => {
             const documentTitle = documentsById.get(match.documentId)?.title ?? match.documentId;
             const resultKey = `${match.documentId}:${match.passageId}`;
 

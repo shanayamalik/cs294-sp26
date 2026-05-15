@@ -67,11 +67,21 @@ figure:"FIG. 2"
 - "This supports the actual examiner workflow after retrieval: narrowing to the right passages, identifying evidence, and handing that evidence into a claim-mapping workspace."
 - "The system addresses a subset of the needs from our inquiry study, especially synonym support, filing-date filtering, section-aware relevance assessment, and search-to-claim-mapping handoff."
 
+## Feature To Need Mapping
+
+- `synonym_of:` and `termset:` address Need 1 by making synonym expansion executable inside the query language instead of forcing separate manual search reformulations.
+- `meta.filingDate`, helper date fields, and metadata comparisons address Need 2 by letting the examiner constrain admissible prior art directly in the query.
+- `Add to chart`, `Copy citation`, and the grouped claim-chart workspace address Need 3 by connecting retrieval to claim-to-evidence mapping.
+- `section:`, `heading:`, `paragraph:`, `claim:`, `figure:`, and passage-level results address Need 4 by helping the examiner find the right part of the document rather than just the right document.
+- Live query refinement addresses Need 5 by supporting the iterative search-and-appraise loop participants described.
+
 ## If Time Is Tight
 
 If the demo must be extremely short, keep only this sequence:
 
 1. Show corpus selection.
 2. Run `section:DESCRIPTION AND termset:"virtual machine"`.
-3. Add one result to the chart.
-4. Open the chart and show the transferred evidence.
+3. Say explicitly that `termset:` is the synonym-support story from the need-finding and that the DSL is operating over passage-level patent structure rather than document blobs.
+4. Mention that the system also supports metadata filtering like filing-date constraints for admissibility, even if you do not type that query on screen.
+5. Add one result to the chart.
+6. Open the chart and say that this is the search-to-claim-mapping handoff, which addresses the manual workflow gap participants described.

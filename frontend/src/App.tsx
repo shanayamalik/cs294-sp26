@@ -38,6 +38,8 @@ type QueryResponse = {
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 const PASSAGE_PREVIEW_LIMIT = 420;
 const INLINE_FACET_LIMIT = 5;
+const DEFAULT_QUERY_TEXT = 'section:SPECIFICATION AND contains:"signal processing"';
+const SEARCH_STATE_STORAGE_KEY = "patent-query-search-state";
 
 type HighlightTerm = {
   value: string;
@@ -51,19 +53,27 @@ type HighlightSpan = {
 
 type SynonymExpansion = NonNullable<QueryResponse["synonymExpansions"]>[number];
 
+type StoredSearchState = {
+  selectedDocumentIds: string[];
+  queryText: string;
+  queryResult: QueryResponse | null;
+  submittedQueryText: string;
+};
+
 export default function App() {
+  const storedSearchState = useMemo(() => loadStoredSearchState(), []);
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(storedSearchState.selectedDocumentIds);
   const [selectedAssigneeFacets, setSelectedAssigneeFacets] = useState<string[]>([]);
   const [selectedInventorFacets, setSelectedInventorFacets] = useState<string[]>([]);
   const [assigneeFacetQuery, setAssigneeFacetQuery] = useState("");
   const [inventorFacetQuery, setInventorFacetQuery] = useState("");
-  const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
+  const [queryText, setQueryText] = useState(storedSearchState.queryText);
   const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
-  const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
-  const [submittedQueryText, setSubmittedQueryText] = useState("");
+  const [queryResult, setQueryResult] = useState<QueryResponse | null>(storedSearchState.queryResult);
+  const [submittedQueryText, setSubmittedQueryText] = useState(storedSearchState.submittedQueryText);
   const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
   const [savedToChartKey, setSavedToChartKey] = useState<string | null>(null);
   const [focusedResultKey, setFocusedResultKey] = useState<string | null>(null);
@@ -72,6 +82,15 @@ export default function App() {
   useEffect(() => {
     void loadDocuments();
   }, []);
+
+  useEffect(() => {
+    saveStoredSearchState({
+      selectedDocumentIds,
+      queryText,
+      queryResult,
+      submittedQueryText,
+    });
+  }, [queryResult, queryText, selectedDocumentIds, submittedQueryText]);
 
   const documentsById = useMemo(
     () => new Map(documents.map((doc) => [doc.id, doc])),
@@ -623,6 +642,63 @@ function createChartRow(
     sourceQueryText: queryText,
     sourceResultKey: `${match.documentId}:${match.passageId}`,
   };
+}
+
+function loadStoredSearchState(): StoredSearchState {
+  const fallback: StoredSearchState = {
+    selectedDocumentIds: [],
+    queryText: DEFAULT_QUERY_TEXT,
+    queryResult: null,
+    submittedQueryText: "",
+  };
+
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
+    if (!raw) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return fallback;
+    }
+
+    return {
+      selectedDocumentIds: Array.isArray(parsed.selectedDocumentIds)
+        ? parsed.selectedDocumentIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
+        : fallback.selectedDocumentIds,
+      queryText: typeof parsed.queryText === "string" ? parsed.queryText : fallback.queryText,
+      queryResult: isQueryResponse(parsed.queryResult) ? parsed.queryResult : fallback.queryResult,
+      submittedQueryText: typeof parsed.submittedQueryText === "string" ? parsed.submittedQueryText : fallback.submittedQueryText,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStoredSearchState(state: StoredSearchState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(SEARCH_STATE_STORAGE_KEY, JSON.stringify(state));
+}
+
+function isQueryResponse(value: unknown): value is QueryResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const result = (value as { result?: unknown }).result;
+  if (!result || typeof result !== "object") {
+    return false;
+  }
+
+  return typeof (result as { totalMatches?: unknown }).totalMatches === "number" && Array.isArray((result as { matches?: unknown }).matches);
 }
 
 function resultElementId(resultKey: string) {

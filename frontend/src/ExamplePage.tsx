@@ -1,40 +1,36 @@
-type QueryComposerVariant = {
+type VisualThemeVariant = {
   id: string;
   name: string;
   tone: string;
   summary: string;
-  composerClassName: string;
-  actionLabel: string;
+  shellClassName: string;
 };
 
-const ACTIVE_FILTERS = ["4 selected patents", "Assignee: Google LLC", "Section: specification"];
-const QUERY_TOKENS = ["section:SPECIFICATION", 'contains:"signal processing"', "assignee:Google"];
-const SAMPLE_QUERY = 'section:SPECIFICATION AND contains:"signal processing"';
+const ACTIVE_FILTERS = ["15 selected patents", "1 metadata filter"];
+const SAMPLE_QUERY = 'section:SPECIFICATION AND contains:"virtual network"';
+const RESULT_TAGS = ["Description", "Brief description of the drawings", "Passage 8", "¶ [9]"];
 
-const QUERY_COMPOSER_VARIANTS: QueryComposerVariant[] = [
+const VISUAL_THEME_VARIANTS: VisualThemeVariant[] = [
   {
-    id: "compact-stack",
-    name: "Compact Stack",
-    tone: "Most restrained and closest to a production search tool.",
-    summary: "Keeps label, query field, helper context, and run action in one tight vertical block with minimal chrome.",
-    composerClassName: "exampleComposer exampleComposerCompact",
-    actionLabel: "Run query",
+    id: "cool-editorial",
+    name: "Cool Editorial",
+    tone: "Closest to the current direction, but sharper and more composed.",
+    summary: "Blue-gray panels, crisp sans-serif UI, and a restrained editorial headline treatment.",
+    shellClassName: "exampleThemeShell exampleThemeShellEditorial",
   },
   {
-    id: "toolbar-shell",
-    name: "Toolbar Shell",
-    tone: "More operational and explicit about scope before writing.",
-    summary: "Uses a small composer header with scope and helper tokens, then puts the textarea and action below like a compact workbench.",
-    composerClassName: "exampleComposer exampleComposerToolbar",
-    actionLabel: "Search passages",
+    id: "soft-product",
+    name: "Soft Product",
+    tone: "Warmer and calmer, with slightly softer contrast.",
+    summary: "Cream-tinted surfaces, rounder components, and a gentler product feel without going decorative.",
+    shellClassName: "exampleThemeShell exampleThemeShellSoft",
   },
   {
-    id: "inline-command",
-    name: "Inline Command",
-    tone: "Most stylized, but still compact enough to test seriously.",
-    summary: "Treats the composer a bit more like a command surface, with DSL context and the primary action sharing the same visual band.",
-    composerClassName: "exampleComposer exampleComposerInline",
-    actionLabel: "Run DSL",
+    id: "technical-ops",
+    name: "Technical Ops",
+    tone: "Most utilitarian and tool-like, with stronger structure.",
+    summary: "Cool steel surfaces, tighter type, and a more explicitly operational interface language.",
+    shellClassName: "exampleThemeShell exampleThemeShellOps",
   },
 ];
 
@@ -43,10 +39,10 @@ export default function ExamplePage() {
     <main className="examplePage">
       <section className="exampleHero">
         <div>
-          <p className="exampleEyebrow">Query composer layout</p>
-          <h1>How should the query composer feel?</h1>
+          <p className="exampleEyebrow">Palette and type</p>
+          <h1>Which visual language fits the workspace?</h1>
           <p className="exampleIntro">
-            This page keeps the same DSL text, helper content, and scope context. The only thing changing is layout: where the context sits, how much framing the textarea gets, and where the primary action belongs.
+            This page keeps the same layout and interaction model. The only thing changing is the visual system: palette, typography, and the tone of the surfaces.
           </p>
         </div>
         <div className="exampleHeroActions">
@@ -56,7 +52,7 @@ export default function ExamplePage() {
       </section>
 
       <section className="exampleGrid">
-        {QUERY_COMPOSER_VARIANTS.map((variant) => (
+        {VISUAL_THEME_VARIANTS.map((variant) => (
           <article key={variant.id} className="exampleCard">
             <div className="exampleCardHeader">
               <div>
@@ -67,71 +63,107 @@ export default function ExamplePage() {
               <p className="exampleVariantSummary">{variant.summary}</p>
             </div>
 
-            <div className={variant.composerClassName}>
-              <div className="exampleComposerMeta">
-                <div>
-                  <strong>Query DSL</strong>
-                  <p>Searching passages inside the current filtered corpus.</p>
+            <div className={variant.shellClassName}>
+              <div className="exampleThemeTopbar">
+                <span className="exampleThemeTopbarLabel">Search workspace</span>
+                <div className="exampleThemeTopbarMeta">
+                  <span>15 docs</span>
+                  <span>15 selected</span>
                 </div>
-                <span className="exampleComposerCount">27 matches last run</span>
               </div>
 
-              {variant.id === "toolbar-shell" ? (
-                <div className="exampleComposerToolbar">
-                  <div className="exampleComposerPills">
-                    {ACTIVE_FILTERS.map((item) => (
-                      <span key={item} className="exampleComposerPill">
-                        {item}
-                      </span>
-                    ))}
+              <div className="exampleThemePanel exampleThemeRail">
+                <div className="exampleThemeSectionHeader">
+                  <strong>Selected patents</strong>
+                  <span>15 chosen</span>
+                </div>
+                <div className="exampleThemeActionRow">
+                  <button type="button" className="exampleThemeAction exampleThemeActionSecondary">
+                    Select filtered
+                  </button>
+                  <button type="button" className="exampleThemeAction exampleThemeActionSecondary">
+                    Clear
+                  </button>
+                </div>
+                <div className="exampleThemeSelectedList">
+                  <label className="exampleThemeSelectedItem">
+                    <input type="checkbox" checked readOnly />
+                    <span>
+                      <strong>Adaptive Sensor Processing System</strong>
+                      <small>sample-patent-1</small>
+                    </span>
+                  </label>
+                  <label className="exampleThemeSelectedItem">
+                    <input type="checkbox" checked readOnly />
+                    <span>
+                      <strong>Virtual Network For Virtual Machine Communication And Migration</strong>
+                      <small>us-10228959-b1-i</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="exampleThemePanel exampleThemeComposer">
+                <div className="exampleThemeSectionHeader">
+                  <div>
+                    <strong>Query DSL</strong>
+                    <p>Searching passages inside the current filtered corpus.</p>
                   </div>
-                  <button type="button" className="exampleComposerUtility">
-                    Edit scope
-                  </button>
-                </div>
-              ) : null}
-
-              <label className="exampleComposerField">
-                <span className="exampleComposerFieldLabel">Draft query</span>
-                <textarea rows={variant.id === "inline-command" ? 3 : 4} readOnly value={SAMPLE_QUERY} />
-              </label>
-
-              <div className="exampleComposerFooter">
-                <div className="exampleComposerHints">
-                  {variant.id === "compact-stack" ? <p className="exampleComposerHelper">Start with section and phrase matching, then narrow only if needed.</p> : null}
-
-                  {variant.id === "inline-command" ? (
-                    <div className="exampleComposerCommandRow">
-                      <span className="exampleComposerPrompt">DSL</span>
-                      <div className="exampleComposerTokens">
-                        {QUERY_TOKENS.map((token) => (
-                          <span key={token} className="exampleComposerToken">
-                            {token}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="exampleComposerTokens">
-                      {QUERY_TOKENS.map((token) => (
-                        <span key={token} className="exampleComposerToken">
-                          {token}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {variant.id !== "compact-stack" ? (
-                    <p className="exampleComposerHelper">The scope stays visible, but secondary to the query itself.</p>
-                  ) : null}
+                  <span className="exampleThemeBadge">36 matches last run</span>
                 </div>
 
-                <div className="exampleComposerActions">
-                  {variant.id === "compact-stack" ? <span className="exampleComposerSubtle">Live query on edit</span> : null}
-                  {variant.id === "toolbar-shell" ? <span className="exampleComposerSubtle">4 patents selected</span> : null}
-                  <button type="button" className="exampleComposerPrimary">
-                    {variant.actionLabel}
+                <div className="exampleThemePills">
+                  {ACTIVE_FILTERS.map((item) => (
+                    <span key={item} className="exampleThemePill">
+                        {item}
+                    </span>
+                  ))}
+                </div>
+
+                <label className="exampleThemeField">
+                  <span className="exampleThemeFieldLabel">Draft query</span>
+                  <textarea rows={3} readOnly value={SAMPLE_QUERY} />
+                </label>
+
+                <div className="exampleThemeFooter">
+                  <p className="exampleThemeHint">Start with section and phrase matching, then narrow only if needed.</p>
+                  <button type="button" className="exampleThemeAction exampleThemeActionPrimary">
+                    Search passages
                   </button>
+                </div>
+              </div>
+
+              <div className="exampleThemePanel exampleThemeResultCard">
+                <div className="exampleThemeResultHeader">
+                  <div>
+                    <strong>Virtual Network For Virtual Machine Communication And Migration</strong>
+                    <small>us-10228959-b1-i</small>
+                  </div>
+                  <div className="exampleThemeResultActions">
+                    <button type="button" className="exampleThemeAction exampleThemeActionGhost">
+                      Copy citation
+                    </button>
+                    <button type="button" className="exampleThemeAction exampleThemeActionGhost">
+                      Add to chart
+                    </button>
+                  </div>
+                </div>
+
+                <div className="exampleThemeTags">
+                  {RESULT_TAGS.map((tag) => (
+                    <span key={tag} className="exampleThemeTag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <p className="exampleThemePassage">
+                  FIG. 7B shows an after-migration snapshot of a <mark>virtual network</mark> routing table.
+                </p>
+
+                <div className="exampleThemeDisclosure">
+                  <span>Full passage + context</span>
+                  <span>View</span>
                 </div>
               </div>
             </div>

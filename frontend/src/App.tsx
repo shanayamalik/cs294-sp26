@@ -273,6 +273,18 @@ export default function App({ demoMode = false }: AppProps) {
   }, [liveQueryEnabled, preloadDocuments, selectedDocumentIds]);
 
   useEffect(() => {
+    if (!demoMode || liveQueryEnabled || pendingSearchNavigation) {
+      return;
+    }
+
+    if (documents.length === 0 || selectedDocumentIds.length === 0 || !queryText.trim()) {
+      return;
+    }
+
+    setLiveQueryEnabled(true);
+  }, [demoMode, documents.length, liveQueryEnabled, pendingSearchNavigation, queryText, selectedDocumentIds.length]);
+
+  useEffect(() => {
     if (!focusedResultKey) {
       return;
     }

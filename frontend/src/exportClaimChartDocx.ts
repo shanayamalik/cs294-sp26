@@ -1,14 +1,18 @@
 import {
   AlignmentType,
+  BorderStyle,
   Document,
   HeadingLevel,
+  PageOrientation,
   Packer,
   Paragraph,
+  ShadingType,
   Table,
   TableCell,
   TableLayoutType,
   TableRow,
   TextRun,
+  VerticalAlign,
   WidthType,
 } from "docx";
 
@@ -25,10 +29,34 @@ export type ExportClaimElementGroup = {
   rows: ExportEvidenceRow[];
 };
 
+const LETTER_SHORT_EDGE_TWIPS = 12240;
+const LETTER_LONG_EDGE_TWIPS = 15840;
+const PAGE_MARGIN_TWIPS = 720;
+const TABLE_WIDTH_TWIPS = LETTER_LONG_EDGE_TWIPS - PAGE_MARGIN_TWIPS * 2;
+const COLUMN_WIDTHS_TWIPS = [2880, 5760, 5760] as const;
+const CELL_MARGIN_TWIPS = 120;
+const TABLE_BORDER = { style: BorderStyle.SINGLE, size: 6, color: "B8C1CC" };
+const HEADER_SHADING = { type: ShadingType.CLEAR, fill: "E8EEF6", color: "auto" };
+
 export async function exportClaimChartDocx(groups: ExportClaimElementGroup[]) {
   const document = new Document({
     sections: [
       {
+        properties: {
+          page: {
+            size: {
+              width: LETTER_SHORT_EDGE_TWIPS,
+              height: LETTER_LONG_EDGE_TWIPS,
+              orientation: PageOrientation.LANDSCAPE,
+            },
+            margin: {
+              top: PAGE_MARGIN_TWIPS,
+              right: PAGE_MARGIN_TWIPS,
+              bottom: PAGE_MARGIN_TWIPS,
+              left: PAGE_MARGIN_TWIPS,
+            },
+          },
+        },
         children: buildDocumentChildren(groups),
       },
     ],
@@ -81,10 +109,31 @@ function buildGroupSection(group: ExportClaimElementGroup, index: number) {
       spacing: { after: 180 },
     }),
     new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
+      width: { size: TABLE_WIDTH_TWIPS, type: WidthType.DXA },
+      columnWidths: COLUMN_WIDTHS_TWIPS,
       layout: TableLayoutType.FIXED,
+      margins: {
+        top: CELL_MARGIN_TWIPS,
+        right: CELL_MARGIN_TWIPS,
+        bottom: CELL_MARGIN_TWIPS,
+        left: CELL_MARGIN_TWIPS,
+      },
+      borders: {
+        top: TABLE_BORDER,
+        right: TABLE_BORDER,
+        bottom: TABLE_BORDER,
+        left: TABLE_BORDER,
+        insideHorizontal: TABLE_BORDER,
+        insideVertical: TABLE_BORDER,
+      },
+      tableLook: {
+        firstRow: true,
+        noHBand: true,
+        noVBand: true,
+      },
       rows: [buildHeaderRow(), ...group.rows.map((row) => buildEvidenceRow(row))],
     }),
+    new Paragraph({ spacing: { after: 160 } }),
   ];
 }
 
@@ -92,9 +141,9 @@ function buildHeaderRow() {
   return new TableRow({
     tableHeader: true,
     children: [
-      buildCell("Citation", true, 24),
-      buildCell("Excerpt", true, 38),
-      buildCell("Analysis", true, 38),
+      buildCell("Citation", 0, true),
+      buildCell("Excerpt", 1, true),
+      buildCell("Analysis", 2, true),
     ],
   });
 }
@@ -102,20 +151,40 @@ function buildHeaderRow() {
 function buildEvidenceRow(row: ExportEvidenceRow) {
   return new TableRow({
     children: [
-      buildCell(row.citation || "(citation missing)", false, 24),
-      buildCell(row.excerpt || "(excerpt missing)", false, 38),
-      buildCell(row.notes || "(analysis missing)", false, 38),
+      buildCell(row.citation || "(citation missing)", 0),
+      buildCell(row.excerpt || "(excerpt missing)", 1),
+      buildCell(row.notes || "(analysis missing)", 2),
     ],
   });
 }
 
-function buildCell(text: string, bold: boolean, widthPercent: number) {
+function buildCell(text: string, columnIndex: number, bold = false) {
   return new TableCell({
-    width: { size: widthPercent, type: WidthType.PERCENTAGE },
+    width: { size: COLUMN_WIDTHS_TWIPS[columnIndex], type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+    shading: bold ? HEADER_SHADING : undefined,
     children: [
       new Paragraph({
-        children: [new TextRun({ text, bold })],
+        children: buildTextRuns(text, bold),
+        wordWrap: true,
+        spacing: { before: 0, after: 0 },
       }),
     ],
   });
+}
+
+function buildTextRuns(text: string, bold: boolean) {
+  const normalizedText = text.replace(/\t/g, " ").replace(/\r\n?/g, "\n");
+  const lines = normalizedText.split("\n");
+
+  return lines.map(
+    (line, index) =>
+      new TextRun({
+        text: line,
+        bold,
+        break: index === 0 ? undefined : 1,
+        size: bold ? 20 : 18,
+        font: "Arial",
+      })
+  );
 }

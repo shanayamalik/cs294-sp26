@@ -43,7 +43,11 @@ type HighlightSpan = {
   end: number;
 };
 
-export default function App() {
+type AppProps = {
+  demoMode?: boolean;
+};
+
+export default function App({ demoMode = false }: AppProps) {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [selectedAssigneeFacets, setSelectedAssigneeFacets] = useState<string[]>([]);
@@ -351,13 +355,42 @@ export default function App() {
   }
 
   return (
-    <main className="page">
-      <section className="panel">
-        <h1>Patent Query Prototype</h1>
-        <p className="subtitle">
-          Document → Section → Passage querying with a minimal DSL. {" "}
-          <a href="#claim-chart-demo">Try claim chart demo →</a>
-        </p>
+    <main className={`page${demoMode ? " demoPage" : ""}`}>
+      {demoMode ? (
+        <section className="demoTopbar" aria-label="Demo comparison controls">
+          <div className="demoTopbarMeta">
+            <span className="demoTopbarLabel">Demo comparison</span>
+            <span>{documents.length} docs</span>
+            <span>{selectedDocumentIds.length} selected</span>
+          </div>
+          <div className="demoTopbarActions">
+            <a className="demoTopbarLink" href="/">
+              Current UI
+            </a>
+            <a className="demoTopbarLink demoTopbarLinkPrimary" href="#claim-chart-demo">
+              Chart workspace
+            </a>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={`panel${demoMode ? " demoControlPanel" : ""}`}>
+        <div className={demoMode ? "demoPanelHeading" : undefined}>
+          <div>
+            <h1>{demoMode ? "Search Workspace" : "Patent Query Prototype"}</h1>
+            <p className="subtitle">
+              {demoMode
+                ? "Structured document selection, metadata filtering, and DSL query composition in one place."
+                : <>Document → Section → Passage querying with a minimal DSL. <a href="#claim-chart-demo">Try claim chart demo →</a></>}
+            </p>
+          </div>
+          {demoMode ? (
+            <div className="demoPanelLinks">
+              <a href="#claim-chart-demo">Claim chart</a>
+              <a href="/">Original page</a>
+            </div>
+          ) : null}
+        </div>
 
         <form onSubmit={onSubmit} className="queryForm">
           <fieldset className="documentPicker">
@@ -467,7 +500,7 @@ export default function App() {
           <label>
             Query DSL
             <textarea
-              rows={3}
+              rows={demoMode ? 2 : 3}
               value={queryText}
               onChange={(event) => {
                 setLiveQueryEnabled(true);
@@ -477,26 +510,45 @@ export default function App() {
             />
           </label>
 
-          <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
-            {loading ? "Running..." : "Run Query"}
-          </button>
+          {demoMode ? (
+            <p className="demoQueryHint">
+              Start with corpus selection, then refine by structure or metadata. This variant is only testing typography, color, and hierarchy.
+            </p>
+          ) : null}
+
+          <div className={demoMode ? "demoQueryActions" : undefined}>
+            <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
+              {loading ? "Running..." : "Run Query"}
+            </button>
+          </div>
         </form>
 
         {selectedDocuments.length > 0 ? (
-          <p className="docMeta">
-            Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
-            {selectedDocuments.map((doc) => doc.id).join(", ")}
-          </p>
+          demoMode ? (
+            <p className="docMeta demoDocMetaCompact">
+              Searching {selectedDocuments.length} selected / {visibleDocuments.length} visible / {documents.length} total documents.
+            </p>
+          ) : (
+            <p className="docMeta">
+              Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
+              {selectedDocuments.map((doc) => doc.id).join(", ")}
+            </p>
+          )
         ) : null}
 
         {error ? <div className="error">{error}</div> : null}
       </section>
 
-      <section className="panel">
-        <h2>Results</h2>
-        <p className="subtitle">
-          {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
-        </p>
+      <section className={`panel${demoMode ? " demoResultsPanel" : ""}`}>
+        <div className={demoMode ? "demoPanelHeading" : undefined}>
+          <div>
+            <h2>Results</h2>
+            <p className="subtitle">
+              {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
+            </p>
+          </div>
+          {demoMode ? <span className="demoResultsBadge">Passages, not document hits</span> : null}
+        </div>
 
         <div className="results">
           {queryResult?.result.matches.map((match) => {
@@ -507,19 +559,21 @@ export default function App() {
               <article
                 key={resultKey}
                 id={resultElementId(resultKey)}
-                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}`}
+                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}${demoMode ? " demoResultCard" : ""}`}
               >
-                <header>
-                  <span className="documentLabel">
+                <header className={demoMode ? "demoResultHeader" : undefined}>
+                  <div className={demoMode ? "demoResultMetaRow" : undefined}>
+                  <span className={`documentLabel${demoMode ? " demoResultTitle" : ""}`}>
                     {highlightText(documentTitle, highlightTerms)}
                     <code>{highlightText(match.documentId, highlightTerms)}</code>
                   </span>
-                  <strong>{match.sectionType}</strong>
-                  <span>{highlightText(match.sectionTitle, highlightTerms)}</span>
-                  <span>Passage {match.passageIndex}</span>
-                  {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
-                  {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
-                  <div className="resultActions">
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>{match.sectionType}</span>
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>{highlightText(match.sectionTitle, highlightTerms)}</span>
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>Passage {match.passageIndex}</span>
+                  {match.paragraphId != null ? <span className={`anchor${demoMode ? " demoResultMetaPill demoAnchorPill" : ""}`}>¶[{match.paragraphId}]</span> : null}
+                  {match.claimNo != null ? <span className={`anchor${demoMode ? " demoResultMetaPill demoAnchorPill" : ""}`}>Claim {match.claimNo}</span> : null}
+                  </div>
+                  <div className={`resultActions${demoMode ? " demoResultActions" : ""}`}>
                     <button
                       type="button"
                       className="copyCitationButton"
@@ -540,11 +594,13 @@ export default function App() {
                   </div>
                 </header>
 
-                <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
+                <p className={`passagePreview${demoMode ? " demoPassagePreview" : ""}`}>{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
 
-                <details>
-                  <summary>Full passage + context</summary>
-                  <div className="contextBlock">
+                <details className={demoMode ? "demoDisclosure demoDisclosureUtility" : undefined}>
+                  <summary className={demoMode ? "demoDisclosureSummary demoDisclosureSummaryUtility" : undefined}>
+                    <span className={demoMode ? "demoDisclosureSummaryText" : undefined}>Full passage + context</span>
+                  </summary>
+                  <div className={`contextBlock${demoMode ? " demoContextBlock" : ""}`}>
                     <p>
                       <b>Matched passage:</b> {highlightText(match.passageText, highlightTerms)}
                     </p>

@@ -2,25 +2,42 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import ClaimChartDemo from "./ClaimChartDemo";
+import ExamplePage from "./ExamplePage";
 import "./styles.css";
 
 function Root() {
-  const [hash, setHash] = useState(() => window.location.hash);
+  const [locationState, setLocationState] = useState(() => ({
+    hash: window.location.hash,
+    pathname: window.location.pathname,
+  }));
 
   useEffect(() => {
-    function handleHashChange() {
-      setHash(window.location.hash);
+    function syncLocation() {
+      setLocationState({
+        hash: window.location.hash,
+        pathname: window.location.pathname,
+      });
     }
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("hashchange", syncLocation);
+    window.addEventListener("popstate", syncLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncLocation);
+      window.removeEventListener("popstate", syncLocation);
+    };
   }, []);
 
-  if (hash === "#claim-chart-demo") {
-    return <ClaimChartDemo />;
+  const demoMode = locationState.pathname === "/demo";
+
+  if (locationState.pathname === "/example") {
+    return <ExamplePage />;
   }
 
-  return <App />;
+  if (locationState.hash === "#claim-chart-demo") {
+    return <ClaimChartDemo demoMode={demoMode} />;
+  }
+
+  return <App demoMode={demoMode} />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

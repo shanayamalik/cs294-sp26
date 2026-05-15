@@ -33,6 +33,853 @@ body {
   align-items: start;
 }
 
+.demoPage {
+  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+  gap: 0.9rem;
+  max-width: 1440px;
+  padding: 1rem;
+}
+
+.demoPage,
+.demoChartPage {
+  --demo-ink: #162031;
+  --demo-muted: #5b6678;
+  --demo-border: #d8dee7;
+  --demo-panel: rgba(248, 250, 252, 0.92);
+  --demo-panel-strong: #ffffff;
+  --demo-accent: #1c4f80;
+  --demo-accent-soft: #e8f0f8;
+  --demo-highlight: #b85d3f;
+}
+
+.demoTopbar {
+  grid-column: 1 / -1;
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0 0.1rem;
+}
+
+.demoTopbarMeta,
+.demoTopbarActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.demoTopbarMeta {
+  color: var(--demo-muted);
+  font-size: 0.82rem;
+}
+
+.demoTopbarLabel {
+  color: var(--demo-ink);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+.demoPage h1,
+.demoPage h2,
+.demoChartPage h1,
+.demoChartPage h2 {
+  font-family: "Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.demoPage h1,
+.demoChartPage h1 {
+  font-size: clamp(1.55rem, 2vw, 1.95rem);
+  line-height: 1.02;
+}
+
+.demoPage h2,
+.demoChartPage h2 {
+  font-size: 1.05rem;
+}
+
+.demoPage,
+.demoPage button,
+.demoPage input,
+.demoPage textarea,
+.demoChartPage,
+.demoChartPage button,
+.demoChartPage input,
+.demoChartPage textarea {
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.demoPanelLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.demoTopbarLink,
+.demoPanelLinks a {
+  border-radius: 999px;
+  border: 1px solid #cfd8e4;
+  padding: 0.45rem 0.8rem;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.demoTopbarLink {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--demo-ink);
+}
+
+.demoTopbarLinkPrimary {
+  background: linear-gradient(135deg, #173f67, #275986);
+  border-color: transparent;
+  color: #f7fafc;
+}
+
+.panel.demoControlPanel,
+.panel.demoResultsPanel,
+.panel.demoChartIntro,
+.demoChartPage .panel {
+  background: var(--demo-panel);
+  border-color: var(--demo-border);
+  box-shadow: 0 10px 24px rgba(24, 39, 58, 0.05);
+  backdrop-filter: blur(10px);
+}
+
+.panel.demoControlPanel {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.96));
+}
+
+.panel.demoResultsPanel {
+  background: linear-gradient(180deg, rgba(242, 247, 252, 0.95), rgba(255, 255, 255, 0.97));
+}
+
+.demoPanelHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.demoPage .subtitle,
+.demoChartPage .subtitle,
+.demoPage .docMeta,
+.demoChartPage .chartSelectionCount,
+.demoChartPage .chartGroupCount {
+  color: var(--demo-muted);
+}
+
+.demoQueryHint {
+  margin: -0.1rem 0 0;
+  color: var(--demo-muted);
+  font-size: 0.82rem;
+}
+
+.demoResultsBadge {
+  background: var(--demo-accent-soft);
+  border: 1px solid #c7d6e7;
+  border-radius: 999px;
+  color: var(--demo-accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.4rem 0.65rem;
+  white-space: nowrap;
+}
+
+.demoPage .documentPicker,
+.demoPage textarea,
+.demoPage .facetSearchInput,
+.demoChartPage .chartTextarea,
+.demoChartPage .chartInput {
+  background: var(--demo-panel-strong);
+  border-color: var(--demo-border);
+}
+
+.demoPage button,
+.demoChartPage button {
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+.demoPage button:not(.secondaryButton):not(.facetChip):not(.copyCitationButton),
+.demoChartPage .chartActionButton,
+.demoChartPage .chartLinkButton {
+  background: linear-gradient(135deg, #173f67, #275986);
+  color: #f7fafc;
+}
+
+.demoPage .secondaryButton,
+.demoPage .facetChip,
+.demoPage .copyCitationButton,
+.demoChartPage .chartDangerButton {
+  background: #f7f9fc;
+  border-color: #d1dae5;
+}
+
+.demoPage .facetChip {
+  color: var(--demo-muted);
+}
+
+.demoPage .facetChipActive {
+  background: linear-gradient(135deg, #17466f, #2f6c8a);
+  border-color: transparent;
+  color: #f7fafc;
+}
+
+.demoPage .resultCard,
+.demoChartPage .chartEvidenceCard,
+.demoChartPage .chartGroupCard,
+.demoChartPage .chartGroupEvidenceCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--demo-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(24, 39, 58, 0.05);
+}
+
+.demoResultCard {
+  gap: 0.65rem;
+}
+
+.demoResultHeader {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.demoResultMetaRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.demoResultTitle {
+  margin-right: auto;
+}
+
+.demoResultTitle code {
+  font-size: 0.78rem;
+}
+
+.demoResultMetaPill {
+  background: #edf3f8;
+  border-radius: 999px;
+  color: #35506d;
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 0.12rem 0.42rem;
+}
+
+.demoAnchorPill {
+  background: #edf3f8;
+  border: none;
+  padding: 0.12rem 0.42rem;
+}
+
+.demoResultActions {
+  gap: 0.35rem;
+}
+
+.demoResultActions .copyCitationButton {
+  border-radius: 10px;
+  font-size: 0.74rem;
+  padding: 0.32rem 0.58rem;
+}
+
+.demoPassagePreview {
+  font-size: 0.9rem;
+  line-height: 1.48;
+}
+
+.demoPage .resultCard strong,
+.demoChartPage strong {
+  color: var(--demo-accent);
+}
+
+.demoPage .panel,
+.demoChartPage .panel,
+.demoPage .resultCard,
+.demoChartPage .chartEvidenceCard,
+.demoChartPage .chartGroupCard,
+.demoChartPage .chartGroupEvidenceCard {
+  padding: 0.85rem;
+}
+
+.demoPage .documentPicker,
+.demoPage .queryForm,
+.demoChartPage .chartEvidenceList,
+.demoChartPage .chartGroupList {
+  gap: 0.6rem;
+}
+
+.demoQueryActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.demoQueryActions button {
+  min-width: 170px;
+  padding: 0.65rem 1rem;
+}
+
+.demoPage .documentOptions {
+  gap: 0.4rem;
+  max-height: 200px;
+}
+
+.demoPage .documentPicker {
+  gap: 0.5rem;
+  padding: 0.6rem;
+}
+
+.demoPage .documentPicker legend {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+.demoPage .documentPickerActions {
+  gap: 0.35rem;
+}
+
+.demoPage .facetBlock {
+  gap: 0.3rem;
+}
+
+.demoPage .facetChips {
+  gap: 0.3rem;
+}
+
+.demoPage .facetChipsScrollable {
+  max-height: 120px;
+}
+
+.demoPage .facetChip {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+}
+
+.demoPage .secondaryButton {
+  padding: 0.35rem 0.55rem;
+}
+
+.demoPage .facetHeader,
+.demoPage .facetHint,
+.demoPage .documentOption code,
+.demoPage .documentLabel code,
+.demoPage .docMeta,
+.demoChartPage .chartEvidenceMeta,
+.demoChartPage .chartGroupCount {
+  font-size: 0.78rem;
+}
+
+.demoDocMetaCompact {
+  margin-top: 0.7rem;
+  max-width: 46ch;
+}
+
+.demoPage .passagePreview,
+.demoChartPage .chartExcerpt,
+.demoChartPage .chartEvidencePreview {
+  font-size: 0.9rem;
+}
+
+.demoPage .documentOption {
+  gap: 0.4rem;
+}
+
+.demoPage .documentOption input {
+  margin-top: 0.14rem;
+}
+
+.demoPage .documentLabel {
+  gap: 0.3rem;
+}
+
+.demoPage textarea,
+.demoPage .facetSearchInput,
+.demoChartPage .chartTextarea,
+.demoChartPage .chartInput {
+  padding: 0.5rem 0.6rem;
+}
+
+.demoPage .facetSearchInput {
+  padding: 0.42rem 0.58rem;
+}
+
+.demoPage textarea {
+  min-height: 96px;
+}
+
+.demoPage .queryHighlight {
+  background: #dbeaf8;
+}
+
+.demoPage .results {
+  gap: 1rem;
+}
+
+.demoDisclosure {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.demoDisclosureSummary {
+  color: var(--demo-ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.demoDisclosureSummary::-webkit-details-marker {
+  display: none;
+}
+
+.demoDisclosureSummaryText,
+.demoDisclosureMeta {
+  display: block;
+}
+
+.demoDisclosureMeta {
+  color: var(--demo-muted);
+  font-size: 0.73rem;
+  margin-top: 0.14rem;
+}
+
+.demoDisclosureUtility {
+  background: #fbfcfe;
+  border: 1px solid #e1e7ef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.demoDisclosureSummaryUtility {
+  padding: 0.72rem 0.82rem;
+  position: relative;
+}
+
+.demoDisclosureSummaryUtility .demoDisclosureSummaryText {
+  color: #17324d;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.demoDisclosureSummaryUtility::after {
+  content: "View";
+  position: absolute;
+  right: 0.82rem;
+  top: 0.78rem;
+  color: #2b5c8b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.demoDisclosureUtility[open] .demoDisclosureSummaryUtility::after {
+  content: "Hide";
+}
+
+.demoDisclosureSummaryUtility:hover .demoDisclosureSummaryText,
+.demoDisclosureSummaryUtility:hover::after {
+  color: #1d5586;
+}
+
+.demoContextBlock {
+  background: #ffffff;
+  border-top: 1px solid #e1e7ef;
+  margin-top: 0;
+  padding: 0.8rem 0.82rem;
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.demoContextBlock p {
+  margin: 0 0 0.8rem;
+}
+
+.demoContextBlock p:last-child {
+  margin-bottom: 0;
+}
+
+.demoChartPage .chartDemoLayout {
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.demoChartPage .chartEvidenceMeta,
+.demoChartPage .chartGroupEvidenceMeta {
+  color: var(--demo-muted);
+}
+
+.examplePage {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.exampleHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 0.1rem 0.2rem;
+}
+
+.exampleEyebrow,
+.exampleVariantLabel {
+  margin: 0 0 0.45rem;
+  color: #6c7788;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.examplePage h1,
+.examplePage h2 {
+  font-family: "Avenir Next", "IBM Plex Sans", "Segoe UI", sans-serif;
+  letter-spacing: -0.04em;
+  margin: 0;
+  color: #162031;
+}
+
+.examplePage h1 {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+
+.examplePage h2 {
+  font-size: 1.1rem;
+}
+
+.exampleIntro,
+.exampleVariantTone,
+.exampleVariantSummary {
+  color: #5a677c;
+}
+
+.exampleIntro {
+  margin: 0.6rem 0 0;
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+.exampleHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.exampleHeroActions a {
+  border: 1px solid #cfd8e4;
+  border-radius: 999px;
+  color: #18304f;
+  font-weight: 700;
+  padding: 0.45rem 0.8rem;
+  text-decoration: none;
+}
+
+.exampleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.exampleCard {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #d8dee7;
+  border-radius: 18px;
+  box-shadow: 0 14px 30px rgba(20, 33, 52, 0.05);
+  padding: 1rem;
+  display: grid;
+  gap: 0.95rem;
+}
+
+.exampleCardHeader {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.exampleVariantTone,
+.exampleVariantSummary {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.exampleResultShell {
+  border: 1px solid #dde5ee;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f9fbfd);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.exampleResultActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.exampleResultActions button {
+  background: #f7f9fc;
+  border: 1px solid #d1dae5;
+  border-radius: 999px;
+  color: #35506d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.38rem 0.7rem;
+}
+
+.exampleResultMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  color: #5a677c;
+  font-size: 0.8rem;
+}
+
+.exampleResultMeta strong {
+  color: #162031;
+  font-size: 0.92rem;
+}
+
+.exampleResultMeta span {
+  border-radius: 999px;
+  background: #edf3f8;
+  color: #35506d;
+  padding: 0.18rem 0.5rem;
+}
+
+.examplePassagePreview {
+  margin: 0;
+  color: #222c3c;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.exampleResultShellCompactOps {
+  gap: 0.65rem;
+}
+
+.exampleResultMetaCompactOps {
+  font-size: 0.74rem;
+  gap: 0.3rem;
+}
+
+.exampleResultMetaCompactOps strong {
+  font-size: 0.86rem;
+  margin-right: auto;
+}
+
+.exampleResultMetaCompactOpsAccent strong,
+.exampleResultMetaCompactOpsAccent span:first-of-type {
+  color: #1c4f80;
+}
+
+.exampleResultMetaCompactOps span {
+  padding: 0.12rem 0.42rem;
+}
+
+.exampleResultActionsCompactOps {
+  gap: 0.35rem;
+}
+
+.exampleResultActionsCompactOps button {
+  border-radius: 10px;
+  font-size: 0.74rem;
+  padding: 0.32rem 0.58rem;
+}
+
+.exampleResultActionsCompactOpsAccent button {
+  border-radius: 10px;
+  font-size: 0.74rem;
+  padding: 0.32rem 0.58rem;
+}
+
+.exampleResultActionsCompactOpsAccent button:nth-child(2) {
+  background: #eaf2fb;
+  border-color: #bfd2e8;
+  color: #1c4f80;
+}
+
+.examplePassagePreviewCompactOps {
+  font-size: 0.9rem;
+  line-height: 1.48;
+}
+
+.exampleDisclosureBodyUtilityCompact {
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.exampleDisclosureBodyUtilityCompactAccent {
+  background: linear-gradient(180deg, #fcfdff, #f6f9fd);
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.exampleDisclosureBodyUtilityCompactLabels {
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.exampleDisclosureBodyUtilityCompactLabels b {
+  color: #1c4f80;
+}
+
+.exampleDisclosure {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.exampleDisclosureSummary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.exampleDisclosureSummary::-webkit-details-marker {
+  display: none;
+}
+
+.exampleDisclosureSummaryText,
+.exampleDisclosureMeta {
+  display: block;
+}
+
+.exampleDisclosureMeta {
+  color: #6a778b;
+  font-size: 0.74rem;
+  margin-top: 0.15rem;
+}
+
+.exampleDisclosureBody {
+  color: #243042;
+}
+
+.exampleDisclosureBody p {
+  margin: 0 0 0.7rem;
+  line-height: 1.5;
+}
+
+.exampleDisclosureBody p:last-child {
+  margin-bottom: 0;
+}
+
+.exampleDisclosureexecutive {
+  border-top: 1px solid #e2e8f1;
+  padding-top: 0.7rem;
+}
+
+.exampleDisclosureexecutive .exampleDisclosureSummary {
+  align-items: center;
+  color: #17324d;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.exampleDisclosureexecutive .exampleDisclosureSummary::after {
+  content: ">";
+  color: #2b5c8b;
+  font-size: 0.75rem;
+  transform: rotate(0deg);
+  transition: transform 160ms ease;
+}
+
+.exampleDisclosureexecutive[open] .exampleDisclosureSummary::after {
+  transform: rotate(90deg);
+}
+
+.exampleDisclosureBodyExecutive {
+  background: linear-gradient(180deg, #fbfcfe, #f5f8fc);
+  border: 1px solid #e2e8f1;
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.exampleDisclosuresoft-card .exampleDisclosureSummary {
+  background: #f4f7fb;
+  border: 1px solid #dae4ef;
+  border-radius: 12px;
+  color: #17324d;
+  padding: 0.8rem 0.9rem;
+  position: relative;
+}
+
+.exampleDisclosuresoft-card .exampleDisclosureSummary::after {
+  content: "+";
+  position: absolute;
+  right: 0.9rem;
+  top: 0.82rem;
+  color: #2b5c8b;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.exampleDisclosuresoft-card[open] .exampleDisclosureSummary::after {
+  content: "-";
+}
+
+.exampleDisclosureBodySoftCard {
+  background: #ffffff;
+  border-left: 3px solid #9db8d7;
+  padding: 0.15rem 0 0 0.9rem;
+}
+
+.exampleDisclosureutility-drawer {
+  background: #fbfcfe;
+  border: 1px solid #e1e7ef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.exampleDisclosureutility-drawer .exampleDisclosureSummary {
+  padding: 0.72rem 0.82rem;
+  position: relative;
+}
+
+.exampleDisclosureutility-drawer .exampleDisclosureSummaryText {
+  color: #17324d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.exampleDisclosureutility-drawer .exampleDisclosureMeta {
+  font-size: 0.78rem;
+}
+
+.exampleDisclosureutility-drawer .exampleDisclosureSummary::after {
+  content: "View";
+  position: absolute;
+  right: 0.82rem;
+  top: 0.82rem;
+  color: #2b5c8b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.exampleDisclosureutility-drawer[open] .exampleDisclosureSummary::after {
+  content: "Hide";
+}
+
+.exampleDisclosureBodyUtility {
+  border-top: 1px solid #e1e7ef;
+  background: #ffffff;
+  padding: 0.8rem 0.82rem;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid #e7ddc9;
@@ -632,6 +1479,23 @@ button:disabled {
 }
 
 @media (max-width: 980px) {
+  .exampleHero,
+  .exampleGrid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .demoPage,
+  .demoChartPage .chartDemoLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .demoPanelHeading,
+  .demoTopbar {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
   .chartDemoLayout {
     grid-template-columns: 1fr;
   }

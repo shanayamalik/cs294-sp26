@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import ClaimChartDemo from "./ClaimChartDemo";
-import ExamplePage from "./ExamplePage";
 import "./styles.css";
 
 function Root() {
@@ -27,11 +26,19 @@ function Root() {
     };
   }, []);
 
-  const demoMode = locationState.pathname === "/demo";
+  useEffect(() => {
+    if (locationState.pathname === "/") {
+      return;
+    }
 
-  if (locationState.pathname === "/example") {
-    return <ExamplePage />;
-  }
+    window.history.replaceState(window.history.state, "", `/${window.location.search}${window.location.hash}`);
+    setLocationState({
+      hash: window.location.hash,
+      pathname: "/",
+    });
+  }, [locationState.pathname]);
+
+  const demoMode = true;
 
   if (locationState.hash === "#claim-chart-demo") {
     return <ClaimChartDemo demoMode={demoMode} />;

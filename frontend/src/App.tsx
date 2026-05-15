@@ -403,16 +403,12 @@ export default function App({ demoMode = false }: AppProps) {
   return (
     <main className={`page${demoMode ? " demoPage" : ""}`}>
       {demoMode ? (
-        <section className="demoTopbar" aria-label="Demo comparison controls">
+        <section className="demoTopbar" aria-label="Search workspace controls">
           <div className="demoTopbarMeta">
-            <span className="demoTopbarLabel">Demo comparison</span>
             <span>{documents.length} docs</span>
             <span>{selectedDocumentIds.length} selected</span>
           </div>
           <div className="demoTopbarActions">
-            <a className="demoTopbarLink" href="/">
-              Current UI
-            </a>
             <a className="demoTopbarLink demoTopbarLinkPrimary" href="#claim-chart-demo">
               Chart workspace
             </a>
@@ -423,12 +419,8 @@ export default function App({ demoMode = false }: AppProps) {
       <section className={`panel${demoMode ? " demoControlPanel" : ""}`}>
         <div className={demoMode ? "demoPanelHeading" : undefined}>
           <div>
-            <h1>{demoMode ? "Search Workspace" : "Patent Query Prototype"}</h1>
-            <p className="subtitle">
-              {demoMode
-                ? "Structured document selection, metadata filtering, and DSL query composition in one place."
-                : <>Document → Section → Passage querying with a minimal DSL. <a href="#claim-chart-demo">Try claim chart demo →</a></>}
-            </p>
+            <h1>Search Workspace</h1>
+            <p className="subtitle">Structured document selection, metadata filtering, and DSL query composition in one place.</p>
           </div>
         </div>
 

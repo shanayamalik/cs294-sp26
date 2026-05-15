@@ -172,18 +172,14 @@ export default function ClaimChartDemo({ demoMode = false }: ClaimChartDemoProps
   return (
     <main className={`chartDemoPage${demoMode ? " demoChartPage" : ""}`}>
       {demoMode ? (
-        <section className="demoTopbar" aria-label="Demo comparison controls">
+        <section className="demoTopbar" aria-label="Claim chart workspace controls">
           <div className="demoTopbarMeta">
-            <span className="demoTopbarLabel">Demo comparison</span>
             <span>{rows.length} evidence row{rows.length === 1 ? "" : "s"}</span>
             <span>{groupedRows.length} group{groupedRows.length === 1 ? "" : "s"}</span>
           </div>
           <div className="demoTopbarActions">
-            <a className="demoTopbarLink" href="/demo">
+            <a className="demoTopbarLink" href="/">
               Search workspace
-            </a>
-            <a className="demoTopbarLink demoTopbarLinkPrimary" href="/">
-              Current UI
             </a>
           </div>
         </section>
@@ -192,18 +188,9 @@ export default function ClaimChartDemo({ demoMode = false }: ClaimChartDemoProps
       <section className={`panel chartDemoIntro${demoMode ? " demoChartIntro" : ""}`}>
         <div className={demoMode ? "demoPanelHeading" : undefined}>
           <div>
-            <h1>{demoMode ? "Claim Chart Workspace" : "Claim Chart Demo"}</h1>
-            <p className="subtitle">
-              {demoMode
-                ? "The comparison view keeps the workflow intact but presents saved evidence and grouped claim rows with a calmer, more product-like frame."
-                : <>A separate mock workflow for collecting evidence into a lightweight claim chart. <a href="#">Back to search →</a></>}
-            </p>
+            <h1>Claim Chart Workspace</h1>
+            <p className="subtitle">Review saved evidence, organize grouped claim rows, and keep chart drafting connected to the search workspace.</p>
           </div>
-          {!demoMode ? (
-            <div className="demoPanelLinks">
-              <a href="#">Back to search</a>
-            </div>
-          ) : null}
         </div>
       </section>
 

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
+from functools import lru_cache
 
 from .models import (
     ContainsFilter,
     CpcFilter,
     Document,
     AndExpression,
+    ClaimFilter,
     FilterExpression,
+    FigureFilter,
+    HeadingFilter,
     MetadataFilter,
     NotExpression,
     OrExpression,
@@ -23,12 +28,43 @@ from .models import (
 )
 
 METADATA_FIELD_ALIASES = {
+    "appfiled": "applicationFilingDate",
+    "appfileddate": "applicationFilingDate",
+    "appno": "applicationNo",
+    "appdate": "applicationFilingDate",
+    "application_filed": "applicationFilingDate",
     "application_filing_date": "applicationFilingDate",
     "application_no": "applicationNo",
+    "application_number": "applicationNo",
+    "applicationdate": "applicationFilingDate",
+    "admissibility": "admissibilityDate",
+    "admissibility_date": "admissibilityDate",
+    "admissibilitydate": "admissibilityDate",
+    "assignee_name": "assignee.name",
+    "assigneename": "assignee.name",
     "document_id": "documentId",
+    "docid": "documentId",
+    "effective": "effectiveDate",
+    "effective_date": "effectiveDate",
+    "effectivedate": "effectiveDate",
+    "filing": "filingDate",
+    "filed": "filingDate",
+    "fileddate": "filingDate",
     "filing_date": "filingDate",
+    "filingdate": "filingDate",
     "ingested_at": "ingestedAt",
+    "inventor_name": "inventors.nameAndCity",
+    "inventorname": "inventors.nameAndCity",
+    "publication": "publicationDate",
+    "pubdate": "publicationDate",
+    "pub_date": "publicationDate",
+    "published": "publicationDate",
+    "publisheddate": "publicationDate",
     "publication_date": "publicationDate",
+    "publicationdate": "publicationDate",
+    "priority": "priorityDate",
+    "priority_date": "priorityDate",
+    "prioritydate": "priorityDate",
     "source_file": "sourceFile",
     "us_class_current": "usClassCurrent",
 }
@@ -101,13 +137,32 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
         return _cpc_matches(document, query_filter.value)
 
     if isinstance(query_filter, SectionFilter):
-        return candidate.section.type == query_filter.value
+        return _section_matches(candidate.section.type, query_filter.value)
 
     if isinstance(query_filter, ContainsFilter):
-        return query_filter.value.lower() in candidate.passage.text.lower()
+        return _contains_matches(candidate.passage.text, query_filter.value, query_filter.mode)
+
+    if isinstance(query_filter, HeadingFilter):
+        return query_filter.value.casefold() in candidate.section.title.casefold()
 
     if isinstance(query_filter, ParagraphFilter):
         return candidate.passage.paragraphId == query_filter.value
+
+    if isinstance(query_filter, ClaimFilter):
+        return candidate.passage.claimNo == query_filter.value
+
+    if isinstance(query_filter, FigureFilter):
+        return _figure_matches(candidate.passage.figureRefs, query_filter.value)
+
+    return False
+
+
+def _section_matches(actual: str, expected: str) -> bool:
+    if actual == expected:
+        return True
+
+    if expected == "SPECIFICATION":
+        return actual in {"BACKGROUND", "SUMMARY", "DESCRIPTION", "SPECIFICATION"}
 
     return False
 
@@ -134,10 +189,20 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
         return f"{prefix}section:{query_filter.value}"
 
     if isinstance(query_filter, ContainsFilter):
-        return f'{prefix}contains:"{query_filter.value}"'
+        filter_name = "contains.regex" if query_filter.mode == "regex" else "contains"
+        return f'{prefix}{filter_name}:"{query_filter.value}"'
+
+    if isinstance(query_filter, HeadingFilter):
+        return f'{prefix}heading:"{query_filter.value}"'
 
     if isinstance(query_filter, ParagraphFilter):
         return f"{prefix}paragraph:{query_filter.value}"
+
+    if isinstance(query_filter, ClaimFilter):
+        return f"{prefix}claim:{query_filter.value}"
+
+    if isinstance(query_filter, FigureFilter):
+        return f'{prefix}figure:"{query_filter.value}"'
 
     return f"{prefix}unknown"
 
@@ -177,6 +242,7 @@ def _candidate_to_match(document: Document, candidate: _Candidate) -> QueryMatch
         reasons=candidate.reasons,
         paragraphId=candidate.passage.paragraphId,
         claimNo=candidate.passage.claimNo,
+        figureRefs=candidate.passage.figureRefs,
     )
 
 
@@ -187,6 +253,44 @@ def execute_query_across_documents(documents: list[Document], query: Query) -> Q
         matches.extend(execute_query(document, query).matches)
 
     return QueryResult(totalMatches=len(matches), matches=matches)
+
+
+def _contains_matches(text: str, expected: str, mode: str = "literal") -> bool:
+    if mode == "regex":
+        pattern = _compile_contains_pattern(expected)
+        return pattern is not None and pattern.search(text) is not None
+
+    return expected.casefold() in text.casefold()
+
+
+def _figure_matches(actual_refs: list[str] | None, expected: str) -> bool:
+    if not actual_refs:
+        return False
+
+    normalized_expected = _normalize_figure_ref(expected)
+    return any(_normalize_figure_ref(actual_ref) == normalized_expected for actual_ref in actual_refs)
+
+
+def _normalize_figure_ref(value: str) -> str:
+    normalized = re.sub(r"\bFIGURE\b", "FIG", value.upper())
+    normalized = normalized.replace(".", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    if re.fullmatch(r"[0-9]+[A-Z]?", normalized):
+        return f"FIG {normalized}"
+
+    if normalized.startswith("FIG "):
+        return normalized
+
+    return normalized
+
+
+@lru_cache(maxsize=512)
+def _compile_contains_pattern(pattern: str):
+    try:
+        return re.compile(pattern, flags=re.IGNORECASE)
+    except re.error:
+        return None
 
 
 def _flatten(document: Document) -> list[_Candidate]:
@@ -209,7 +313,13 @@ def _metadata_matches(document: Document, raw_field: str, operator: str, expecte
 
 def _metadata_value(document: Document, raw_field: str):
     value = document.metadata.model_dump()
-    for part in raw_field.split("."):
+    resolved_field = _resolve_metadata_field_path(raw_field)
+
+    derived_value = _derived_metadata_value(document, resolved_field)
+    if derived_value is not None:
+        return derived_value
+
+    for part in resolved_field.split("."):
         field = _metadata_field_name(part)
         if isinstance(value, dict):
             value = _dict_get_case_insensitive(value, field)
@@ -232,6 +342,60 @@ def _metadata_value(document: Document, raw_field: str):
         return None
 
     return value
+
+
+def _derived_metadata_value(document: Document, resolved_field: str):
+    if resolved_field == "priorityDate":
+        return _derived_priority_date(document)
+
+    if resolved_field in {"effectiveDate", "admissibilityDate"}:
+        return _derived_effective_date(document)
+
+    return None
+
+
+def _derived_priority_date(document: Document) -> str | None:
+    priorities = document.metadata.domesticPriority or []
+    priority_dates: list[date] = []
+
+    for entry in priorities:
+        if not isinstance(entry, str):
+            continue
+
+        for match in re.findall(r"\b\d{8}\b", entry):
+            parsed = _parse_date(match)
+            if parsed is not None:
+                priority_dates.append(parsed)
+
+    if not priority_dates:
+        return None
+
+    return min(priority_dates).isoformat()
+
+
+def _derived_effective_date(document: Document) -> str | None:
+    for candidate in (
+        _derived_priority_date(document),
+        _normalize_date_text(document.metadata.applicationFilingDate),
+        _normalize_date_text(document.metadata.filingDate),
+    ):
+        if candidate is not None:
+            return candidate
+
+    return None
+
+
+def _normalize_date_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    parsed = _parse_date(value)
+    return parsed.isoformat() if parsed is not None else None
+
+
+def _resolve_metadata_field_path(raw_field: str) -> str:
+    normalized = raw_field.strip()
+    return METADATA_FIELD_ALIASES.get(normalized.lower(), normalized)
 
 
 def _metadata_field_name(raw_field: str) -> str:

@@ -485,71 +485,103 @@ management, date filtering, and claim-to-evidence mapping.
 \subsection{Overview}
 
 \smallskip\noindent\textbf{What the tool is.}
-Our system is a programmatic document analysis environment in which patent
-documents are treated as structured, queryable data rather than opaque text
-blobs. An examiner begins by uploading one or more patent documents (PDF or
-plain text), which the system parses into a \texttt{Document~$\to$~Section~$\to$~Passage}
-hierarchy. The examiner then selects a subset of loaded documents to search
+Our system is a programmatic patent document analysis environment in which
+patent documents are treated as structured, queryable data rather than opaque
+full-text blobs. An examiner begins by loading one or more patent documents
+in PDF or plain-text form. The system parses each source into a
+\texttt{Document~$\to$~Section~$\to$~Passage} hierarchy, extracts patent
+metadata, and stores the result in a structured document representation that
+preserves section type, numbered paragraphs, claim anchors, and neighboring
+context. The examiner then selects the subset of documents they want to search
 over and writes a query in a lightweight textual DSL. The system executes the
-query at the passage level and returns a list of matched passages, each
-displayed in a result card. Each card shows: the matched passage text with
-the queried terms highlighted; the document title and section type
-(\textsc{specification}, \textsc{claims}, etc.); the paragraph or claim
-anchor (\texttt{[0042]}, \emph{Claim~3}) if present; the immediately
-preceding and following passages for context; and a human-readable
-explanation of which predicates matched and why.
+query at the passage level and returns matched passages with provenance:
+document title and identifier, section type and heading, passage index,
+optional paragraph or claim anchor, contextual neighbors, and a human-readable
+reason string explaining why the result matched.
 
-The interface is a split-panel layout: a document manager and query editor
-on the left, a scrollable list of result cards on the right. Results update
-live as the examiner types, with a 600ms debounce, so the result set
-reflects the current query before the examiner has finished formulating the
-next refinement step. There is no ``run search'' button to press; the tight
-feedback loop is intentional.
+The interface has two connected surfaces. The main search page combines a
+document manager, a DSL editor, and a scrollable list of result cards. Each
+result card supports lightweight downstream actions: the examiner can copy a
+citation trace directly from the card or send the passage into a separate
+claim-chart workspace. The second surface is a grouped claim-chart page in
+which evidence rows are organized under claim elements, edited, and exported
+as TSV or DOCX. This second surface is still prototype-grade, but it is
+included intentionally because our study showed that the handoff from search
+to claim mapping is itself one of the largest gaps in current examiner
+tooling. Figure~\ref{fig:search-ui} shows the current search interface, and
+Figure~\ref{fig:claim-chart-ui} shows the separate claim-chart workspace.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]{figures/search-ui.png}
+  \caption{Main search interface. The left side exposes document selection and a DSL query editor; the right side shows passage-level results with section labels, contextual evidence, and lightweight actions for copying citations or sending passages into the chart workspace.}
+  \Description{The main search interface of the prototype. A left panel lists selectable patent documents and a query editor, while a right panel shows one matching passage result with section metadata, highlighted text, and buttons for copying a citation or adding the result to the claim chart.}
+  \label{fig:search-ui}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.84\textwidth,height=0.8\textheight,keepaspectratio]{figures/claim-chart-ui.png}
+  \caption{Claim-chart workspace. Evidence imported from search is grouped under a claim and element label, remains editable, and can be exported in lightweight structured formats such as TSV and DOCX.}
+  \Description{The claim-chart workspace of the prototype. The page shows saved evidence imported from search, editable fields for claim number and element label, claim element text, and a grouped evidence card with an analysis field and export actions.}
+  \label{fig:claim-chart-ui}
+\end{figure*}
+
+The search interface supports both explicit submission and live refinement.
+On a fresh page load, the system does not immediately run a broad query across
+all selected documents; this avoids hydrating unnecessary documents before the
+examiner has begun interacting. Once the examiner edits the query, changes the
+document selection, or presses the run button, the interface enables a 600ms
+debounced live-refresh loop so subsequent refinements update the result set in
+near real time. In parallel, the frontend opportunistically preloads the
+currently selected documents so the first query on that selected set need not
+hydrate each document one by one.
 
 \smallskip\noindent\textbf{Why this tool, for this population.}
 Every design decision in this section is traceable to a specific observation
 from our contextual inquiry sessions. The document model reflects the legal
 structure of patents as participants described it. The DSL operators map
-directly to the reasoning strategies participants actually used. The live
-refresh matches the iterative appraise-and-refine cycle that P02 articulated
-as the correct mental model for patent search. We describe these connections
-in detail below.
+directly to the reasoning strategies participants actually used. The
+claim-chart handoff reflects the fact that retrieval and synthesis were never
+truly separate stages in our observations. The live refresh matches the
+iterative appraise-and-refine cycle that P02 articulated as the correct
+mental model for patent search. We describe these connections in detail below.
 
 
 \subsection{Walkthrough: P03's Claim-Mapping Task}
 
-To make the design concrete, we walk through how our tool would support a
-task we observed during session P03. P03 was working a software patent
-application whose independent claim recited a system for \emph{dynamic
-routing table updates}. Having identified seven candidate prior art references
-via a USPC/CPC class search, P03 needed to determine whether any of them
-disclosed the claimed routing mechanism. The process we observed occupied
-more than 20 minutes and involved the following manual steps: (1) opening
-each reference in a USPTO viewer; (2) using CTRL+F to locate the term
-``routing'' anywhere in the document; (3) scrolling through every match
-regardless of section---abstract, background, claims---to assess whether it
-described a dynamic update mechanism; (4) if promising, manually recording
-the paragraph number and section for later citation; and (5) repeating for
-every synonym that P03 could think of (``forwarding table,'' ``FIB,''
-``routing cache''). P03 noted that of the seven initial results, only one
-had a usable filing date, but determining this also required a separate
-manual inspection of each.
+To make the design concrete, we walk through how our tool supports a task we
+observed during session P03. P03 was working a software patent application
+whose independent claim recited a system for \emph{dynamic routing table
+updates}. After identifying several candidate references through
+classification-based search, P03 had to determine whether any of them
+disclosed the claimed routing mechanism, and if so, where the strongest
+supporting passages appeared. The process we observed involved repeated
+document opening, repeated \texttt{Ctrl+F} searches, and repeated manual note
+taking. P03 searched for one candidate term at a time, scanned every match
+regardless of section, recorded paragraph numbers manually when something
+looked useful, and then repeated the same cycle for each synonym that seemed
+plausible (e.g., \emph{routing table}, \emph{forwarding table},
+\emph{FIB}, \emph{routing cache}). P03 also had to manually inspect filing
+dates to determine which references were legally admissible.
 
-With our tool, the same task would proceed as follows.
+With our tool, the same task proceeds as a single connected workflow.
 
 \smallskip\noindent\emph{Step 1: Load and scope the corpus.}
-The examiner uploads the seven candidate PDFs. The document manager lists
-them with their parsed titles and CPC codes. To immediately filter to a
-legally admissible subset, the examiner can write:
+The examiner loads the seven candidate PDFs. The document manager lists them
+with their parsed titles and identifiers, while the backend indexes
+lightweight metadata immediately and defers full passage hydration until the
+documents are actually needed. To immediately filter to a legally admissible
+subset, the examiner can write:
 
 \begin{lstlisting}[caption={Filter by filing date and CPC before opening any document.}]
 meta.filingDate:<2018-03-15 AND cpc:"H04L 45/00"
 \end{lstlisting}
 
 \noindent This eliminates references that postdate the application's
-effective filing date without the examiner having to open each document.
-This directly addresses Need~2: P03 described having to manually inspect
-each of the seven results to determine which had a usable date.
+effective filing date without the examiner having to open each reference in a
+separate viewer. This directly addresses Need~2: P03 described having to
+manually inspect each candidate result to determine which had a usable date.
 
 \smallskip\noindent\emph{Step 2: Query across the corpus for the claim element.}
 The examiner then writes a query targeting the specific claim language.
@@ -564,25 +596,38 @@ section:SPECIFICATION AND
 \end{lstlisting}
 
 \noindent The result set now contains only passages from the detailed
-specification---the section legally relevant for mapping a claim element to
-evidence---that mention any of the four synonymous terms. Passages from the
-abstract, background, and claims are excluded. Passages from all selected
-documents appear in one scrollable list. This addresses both Need~1 (synonym
-management) and Need~4 (section-scoped keyword localization) simultaneously.
+specification---the section most likely to contain the technical teaching that
+maps to a claim element---that mention any of the four synonymous terms.
+Passages from the abstract, claims, and unrelated sections are excluded.
+Passages from all selected documents appear in one scrollable list. This
+addresses both Need~1 (synonym management) and Need~4 (section-scoped keyword
+localization) simultaneously.
 
 \smallskip\noindent\emph{Step 3: Assess results in context.}
 Each result card displays the matched passage text alongside the passage
 immediately before and after it. P03 observed that keyword hits alone were
 often not sufficient to determine relevance---``you have to go through the
 whole patent'' to understand whether a term was being used in the right
-sense. The neighboring passages eliminate most of that reading burden. For
-each card, the paragraph anchor (\texttt{[0042]}) is displayed, ready to be
-copied into the claim chart without further document lookup. This addresses
-the citation overhead P01 described: the overhead of manually recording
-``column and line number'' for granted patents is eliminated because the
-anchor is extracted at parse time.
+sense. The neighboring passages eliminate most of that reading burden. Each
+card also exposes the paragraph or claim anchor, a \texttt{Copy citation}
+action, and an \texttt{Add to chart} action that sends the passage directly
+into the claim-chart workspace. This addresses the citation overhead P01
+described while also reducing the manual handoff burden associated with
+Need~3. Figure~\ref{fig:search-ui} shows this result-card workflow in the
+current prototype.
 
-\smallskip\noindent\emph{Step 4: Iterative refinement.}
+\smallskip\noindent\emph{Step 4: Collect and organize evidence.}
+When the examiner identifies a promising passage, they add it to the
+claim-chart workspace. That page groups evidence rows by claim and element
+label, so multiple supporting passages for the same limitation can be managed
+together. The examiner can fill in the claim element text, add analysis, and
+export the grouped chart as TSV or DOCX. This is still a lightweight
+prototype rather than a full office-action authoring system, but it directly
+addresses the fact that participants currently bridge this stage with Word,
+paper, or personal templates. Figure~\ref{fig:claim-chart-ui} shows the
+current grouped workspace after evidence has been transferred from search.
+
+\smallskip\noindent\emph{Step 5: Iterative refinement.}
 If the initial results contain false positives (e.g., passages about static
 routing that happen to mention ``routing table''), the examiner narrows the
 query by adding a term without restarting:
@@ -593,14 +638,14 @@ section:SPECIFICATION AND
   AND contains:"dynamic"
 \end{lstlisting}
 
-\noindent The result set updates within 600ms. The examiner can see
-immediately whether the added constraint reduced the result set to something
-manageable or eliminated too many relevant passages, and can adjust
-accordingly. This tight iteration loop was absent from every tool P03,
-P05, and P09 described. P02 articulated the correct model: effective search
-``really involves appraising the art as you search for it, and refining
-your search based on that'' (Need~5). Our live refresh is a direct
-implementation of that observation.
+\noindent Once the examiner has begun interacting, the result set updates
+within 600ms. The examiner can see immediately whether the added constraint
+reduced the result set to something manageable or eliminated too many relevant
+passages, and can adjust accordingly. This tight iteration loop was absent
+from every tool P03, P05, and P09 described. P02 articulated the correct
+model: effective search ``really involves appraising the art as you search for
+it, and refining your search based on that'' (Need~5). Our live refinement
+loop is the direct implementation of that observation.
 
 
 \subsection{The Document Abstraction}
@@ -651,6 +696,18 @@ this means paragraph numbers; for granted patents, column and line numbers.
 P01 called this process manual and frustrating. By extracting and storing
 the anchor at parse time, our system can surface it on the result card
 without requiring the examiner to open the document.
+
+\smallskip\noindent\textbf{Metadata sidecars and selective hydration.}
+In the current prototype, the document abstraction also shapes the storage and
+loading strategy. We separate lightweight document metadata from the full
+passage payload on disk so that startup can index the document set without
+materializing every passage body in memory. The backend can therefore list and
+filter loaded documents using metadata alone, while full document hydration is
+deferred until a document is actually queried or explicitly preloaded. This is
+not just an implementation detail: it reflects the same design principle as
+the frontend interaction model. Broad corpus knowledge should be cheap to keep
+available; expensive document structure should be loaded only when it supports
+an actual examiner action.
 
 
 \subsection{The Query DSL}
@@ -754,6 +811,18 @@ application's effective filing date, requiring a complete redo. P06 called
 the absence of reliable date filtering ``definitely a very good fix that can
 be done.''
 
+The current prototype also supports metadata conveniences that reduce the gap
+between raw metadata structure and the way examiners naturally formulate
+queries. In addition to nested metadata paths such as
+\texttt{meta.assignee.name}, the implementation supports direct aliases such
+as \texttt{meta.pubDate}, \texttt{meta.appNo}, \texttt{meta.assigneeName},
+and \texttt{meta.inventorName}. It also supports substring and prefix
+operators for metadata exploration as well as derived helper fields such as
+\texttt{meta.priorityDate}, \texttt{meta.effectiveDate}, and
+\texttt{meta.admissibilityDate}. These helpers do not solve the legal
+admissibility problem completely, but they move date reasoning closer to the
+query layer than any tool participants described using.
+
 \smallskip\noindent\textbf{Full composability.}
 All predicates compose with arbitrary nesting. The following query reflects
 the kind of compound search P03 assembled across multiple tool sessions
@@ -796,6 +865,18 @@ enough local context for a relevance judgment without requiring the examiner
 to load the full document. The tradeoff---longer result cards, more
 scrolling---was acceptable because it directly replaces the longer task of
 opening each document to read around each hit.
+
+\smallskip\noindent\textbf{Decision 1b: Search and synthesis remain connected.}
+An early version of the prototype stopped at passage retrieval. That would
+have been enough to demonstrate the DSL and the passage-level model, but it
+would have ignored one of the strongest findings from our study: the handoff
+from retrieval to claim mapping is itself a major source of friction. We
+therefore chose to expose lightweight downstream actions directly on result
+cards and to build a separate claim-chart workspace rather than treating
+search as the end of the interaction. This does not mean the current
+claim-chart feature set is complete. It means that our design explicitly
+recognizes claim mapping as part of the same workflow rather than a separate
+phase left entirely to external tools.
 
 \smallskip\noindent\textbf{Decision 2: Section type as a predicate with a
 closed vocabulary, not a metadata field.}
@@ -870,6 +951,26 @@ behaves like a responsive filter panel: each character edit produces updated
 results within 600ms. The perceived interactivity difference between a
 textual DSL and a GUI panel is therefore small, while the artifact value of
 the textual form is substantially higher.
+
+\smallskip\noindent\textbf{Decision 5: Preprocess broad, hydrate narrow.}
+As the prototype expanded from a small demo to a multi-document tool, a new
+design question emerged: how much of the corpus should be processed eagerly
+and how much should remain deferred until the user acts? A naive design would
+hydrate every parsed document into memory on startup. That keeps the first
+query fast, but it also wastes work on documents the examiner may never query.
+At the other extreme, a purely on-demand design makes every first query pay a
+document-loading cost even when the tool already has strong signals about what
+the examiner is likely to search next.
+
+We resolved this tension by separating preprocessing into two layers. The
+system eagerly indexes lightweight metadata for all parsed documents so the UI
+can present and filter a corpus cheaply. It then lazily hydrates full
+documents on first access, while also opportunistically preloading the
+currently selected document set after explicit user interaction. This design
+fits the workflow we observed: examiners often know the subset of candidate
+references they are actively working with, but they do not want the system to
+waste effort on every possible document in the corpus. The resulting strategy
+is simple to describe: preprocess broad, hydrate narrow.
 
 
 %% ====================================================================

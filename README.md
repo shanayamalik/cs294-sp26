@@ -2,36 +2,54 @@
 
 We design a programming-oriented document analysis environment where patent documents are treated as structured, queryable data. Instead of manual keyword search and scanning, examiners define reusable document-level queries over structure (sections, passages, metadata) to systematically retrieve and analyze relevant evidence.
 
+## Overview
+
+This prototype combines a FastAPI backend, a lightweight patent-query DSL, and a React frontend for passage-level retrieval over parsed patent documents. The current system supports multi-document querying, passage provenance, metadata-aware filtering, and an isolated claim-chart demo workflow for collecting retrieved evidence.
+
 ## Repository Layout
 
 - `backend/` FastAPI + Python API, parser pipeline, query engine, DSL parser
 - `frontend/` React + Vite UI for running queries and viewing results
 - `docs/` MVP scope, architecture, and query examples
 
-## Current MVP
+## Current Features
 
 - Document model: `Document -> Section -> Passage`
 - Parser for constrained raw patent inputs (`.txt` and text-extractable `.pdf`)
-- Internal query model with filters:
-  - `section == TYPE`
-  - `meta.KEY == VALUE` (optional)
-  - `meta.KEY < VALUE`, `<=`, `>`, `>=` for comparable metadata such as filing dates
-  - `meta.KEY ~ VALUE` / `^ VALUE` for substring and prefix matching on string metadata such as assignee or inventor names
-  - `cpc == CODE` (optional)
-  - `contains("phrase")`
-  - `paragraph == NNNN` (optional pinpoint drill-down)
 - Boolean logic: `AND`, `OR`, `NOT`, parentheses with proper precedence
-- Lightweight textual DSL:
-  - `section:SUMMARY AND contains:"normalizer task queue"`
-  - `section:CLAIMS AND paragraph:0042`
-  - `meta.filingDate:<2018-03-15 AND section:SPECIFICATION`
-  - `meta.assignee.name:~"Google"`
-  - `contains:"server" OR contains:"network"`
-  - `NOT section:OTHER`
+- Query filters for section, phrase/regex containment, heading text, CPC, paragraph anchor, structural claim/figure filters, and metadata
+- Built-in reusable synonym expansion via `synonym_of:"term"` and `termset:"name"`
+- Metadata support for:
+  - exact match
+  - date and numeric comparison (`<`, `<=`, `>`, `>=`)
+  - substring and prefix match (`~`, `^`)
+  - convenience aliases such as `meta.pubDate`, `meta.published`, `meta.appNo`, `meta.filing`, `meta.appDate`, `meta.assigneeName`, and `meta.inventorName`
+  - derived helper fields such as `meta.priorityDate`, `meta.effectiveDate`, and `meta.admissibilityDate`
 - Query execution with provenance metadata, grouped by matched document
-- Thin UI to run queries and inspect passage context
-- Result cards show per-match provenance, including document id, section, passage index, and anchor badges when available (`paragraphId`, `claimNo`)
+- Frontend document picker for multi-document search
+- Result cards with document provenance, section metadata, neighboring context, and anchor badges when available (`paragraphId`, `claimNo`)
+- `Copy citation` and `Add to chart` actions on result cards
+- Separate `#claim-chart-demo` page for grouped evidence collection, TSV export, and DOCX claim-chart export
 - Live query refresh with a 600ms debounce for iterative query refinement
+
+## Example Queries
+
+```text
+section:SUMMARY AND contains:"normalizer task queue"
+section:CLAIMS AND paragraph:0042
+meta.filingDate:<2018-03-15 AND section:SPECIFICATION
+meta.pubDate:>=2019-01-01
+meta.assigneeName:~"Google"
+meta.inventorName:^"Anderson" AND contains:"virtual machine"
+meta.priorityDate:<2011-07-01
+meta.admissibilityDate:<2011-07-01
+contains:"server" OR contains:"network"
+contains.regex:"virtual\s+machine|hypervisor"
+termset:"virtual machine" AND section:DESCRIPTION
+NOT section:OTHER
+```
+
+More examples are in [docs/example-queries.md](docs/example-queries.md).
 
 ## Quick Start
 
@@ -65,39 +83,27 @@ npm run dev:frontend
 
 5. Open the frontend URL printed by Vite (usually `http://localhost:5173`).
 
-## Backend Scripts
+## Working With New Patents
+
+- Add new source patents to `backend/data/raw/` as text-extractable `.pdf` files or `.txt` files.
+- Regenerate the parsed corpus with `npm run parse:raw`.
+- Parsed `backend/data/parsed/*.generated.json` files are treated as derived artifacts and are gitignored, so teammates should rerun `npm run parse:raw` after pulling new raw patent files.
+
+## Common Commands
 
 - `npm run dev:backend` - start FastAPI with auto-reload on port `4000`
+- `npm run dev:frontend` - start the Vite frontend
 - `npm run test:backend` - run backend unit tests with pytest
-- `npm run parse:raw` - parse all supported files in `backend/data/raw/` (`.txt`, `.pdf`) into JSON
+- `npm run parse:raw` - parse supported files in `backend/data/raw/` into JSON
 
 ## PDF Notes
 
 - PDF parsing currently uses text extraction (`pypdf`), not OCR.
 - If a PDF is image-only/scanned, run OCR first before ingestion.
 
-## Example Query DSL
+## Documentation
 
-```text
-section:SUMMARY AND contains:"normalizer task queue"
-```
-
-## What's Been Done (shanaya branch)
-
-- `paragraph:NNNN` filter implemented and tested against USPTO PDF patents
-- `OR` and `NOT` boolean operators fully supported
-- Multi-document querying with per-result document provenance
-- Result cards now display paragraph / claim anchors (`¶[N]`, `Claim N`) when available
-- Filing-date comparison filters now supported for comparable metadata fields such as `meta.filingDate:<2018-03-15`
-- Metadata exploration supports substring and prefix matching such as `meta.assignee.name:~"Google"`
-- PDF patent parsing via `pypdf` (5 USPTO PDFs in `backend/data/raw/`)
-- `npm run dev:backend` fixed to use venv python
-- Frontend build config cleaned up so TypeScript no longer emits stale `.js` / `.d.ts` files into `frontend/src`
-
-## Next Steps
-
-- Need-finding-motivated filters (especially filing-date comparison and richer metadata predicates)
-- Claim-mapping workflow support beyond retrieval (copy/export citations, structured claim charting)
-- Query authoring aids (cheat sheet, examples, saved query snippets)
-- Pre-loading / lazy loading for larger document sets
-- USPTO API integration
+- [docs/example-queries.md](docs/example-queries.md) - query examples
+- [docs/mvp-scope.md](docs/mvp-scope.md) - current scope and implemented MVP state
+- [docs/architecture.md](docs/architecture.md) - architecture notes
+- [docs/demo-ideas.md](docs/demo-ideas.md) - suggested walkthroughs and short demo story

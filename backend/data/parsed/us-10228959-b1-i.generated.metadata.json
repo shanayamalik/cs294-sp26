@@ -1,0 +1,68 @@
+{
+  "id": "us-10228959-b1-i",
+  "title": "Virtual Network For Virtual Machine Communication And Migration",
+  "sourceFile": "US_10228959_B1_I.pdf",
+  "ingestedAt": "2026-05-15T02:36:31.846201+00:00",
+  "documentId": "US 10228959 B1",
+  "publicationDate": "2019-03-12",
+  "applicationNo": "13/186293",
+  "filingDate": "2011-07-19",
+  "applicationFilingDate": "20110719",
+  "inventors": [
+    {
+      "raw": "Anderson; Evan K. Seattle WA N/A US",
+      "state": "WA",
+      "nameAndCity": "Anderson; Evan K. Seattle",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Petrescu-Prahova; CristianSeattle WA N/A US",
+      "state": "WA",
+      "nameAndCity": "Petrescu-Prahova; CristianSeattle",
+      "zipCode": "N/A",
+      "country": "US"
+    },
+    {
+      "raw": "Beda, III; Joseph S. Seattle WA N/A US",
+      "state": "WA",
+      "nameAndCity": "Beda, III; Joseph S. Seattle",
+      "zipCode": "N/A",
+      "country": "US"
+    }
+  ],
+  "assignee": {
+    "name": "Google LLC",
+    "city": "Mountain View",
+    "state": "CA",
+    "zipcode": "N/A",
+    "country": "US",
+    "typecode": "02"
+  },
+  "cpc": [
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/546",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/5077",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/45558",
+      "date": "2013-01-01"
+    },
+    {
+      "type": "CPCI",
+      "code": "G 06 F 9/4856",
+      "date": "2013-01-01"
+    }
+  ],
+  "domesticPriority": [
+    "us-provisional-application US 61492708 20110602"
+  ],
+  "usClassCurrent": "1/1"
+}

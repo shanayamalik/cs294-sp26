@@ -4,20 +4,23 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-SectionType = Literal["TITLE", "ABSTRACT", "SPECIFICATION", "CLAIMS", "OTHER"]
+SectionType = Literal["TITLE", "ABSTRACT", "BACKGROUND", "SUMMARY", "DESCRIPTION", "SPECIFICATION", "CLAIMS", "OTHER"]
 
 SECTION_SYNONYMS: dict[str, SectionType] = {
     "TITLE": "TITLE",
     "ABSTRACT": "ABSTRACT",
+    "BACKGROUND": "BACKGROUND",
+    "BACKGROUND OF THE INVENTION": "BACKGROUND",
     "CLAIM": "CLAIMS",
     "CLAIMS": "CLAIMS",
+    "SUMMARY": "SUMMARY",
+    "BRIEF SUMMARY": "SUMMARY",
+    "SUMMARY OF THE INVENTION": "SUMMARY",
     "SPECIFICATION": "SPECIFICATION",
-    "DESCRIPTION": "SPECIFICATION",
-    "DETAILED DESCRIPTION": "SPECIFICATION",
-    "BRIEF DESCRIPTION": "SPECIFICATION",
-    "BACKGROUND": "SPECIFICATION",
-    "SUMMARY": "SPECIFICATION",
-    "FIELD": "SPECIFICATION",
+    "DESCRIPTION": "DESCRIPTION",
+    "DETAILED DESCRIPTION": "DESCRIPTION",
+    "BRIEF DESCRIPTION": "DESCRIPTION",
+    "FIELD": "DESCRIPTION",
     "OTHER": "OTHER",
 }
 
@@ -70,6 +73,12 @@ class SectionFilter(BaseModel):
 class ContainsFilter(BaseModel):
     kind: Literal["contains"]
     value: str
+    mode: Literal["literal", "regex"] = "literal"
+
+
+class HeadingFilter(BaseModel):
+    kind: Literal["heading"]
+    value: str
 
 
 class MetadataFilter(BaseModel):
@@ -89,8 +98,18 @@ class ParagraphFilter(BaseModel):
     value: str
 
 
+class ClaimFilter(BaseModel):
+    kind: Literal["claim"]
+    value: int
+
+
+class FigureFilter(BaseModel):
+    kind: Literal["figure"]
+    value: str
+
+
 QueryFilter = Annotated[
-    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter, ParagraphFilter],
+    Union[SectionFilter, ContainsFilter, HeadingFilter, MetadataFilter, CpcFilter, ParagraphFilter, ClaimFilter, FigureFilter],
     Field(discriminator="kind"),
 ]
 
@@ -162,6 +181,7 @@ class QueryMatch(BaseModel):
     reasons: list[str]
     paragraphId: str | None = None
     claimNo: int | None = None
+    figureRefs: list[str] | None = None
 
 
 class QueryResult(BaseModel):
@@ -187,6 +207,16 @@ class QueryRequest(BaseModel):
 
 class ParseDocumentRequest(BaseModel):
     fileName: str
+
+
+class PreloadDocumentsRequest(BaseModel):
+    documentIds: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize_document_ids(self) -> "PreloadDocumentsRequest":
+        seen: set[str] = set()
+        self.documentIds = [document_id for document_id in self.documentIds if not (document_id in seen or seen.add(document_id))]
+        return self
 
 
 def _groups_to_expression(groups: list[list[QueryClause]]) -> QueryExpression:
@@ -239,13 +269,13 @@ def infer_section_type(heading: str) -> SectionType:
         return "CLAIMS"
     if "ABSTRACT" in normalized:
         return "ABSTRACT"
-    if (
-        "SPECIFICATION" in normalized
-        or "DESCRIPTION" in normalized
-        or "BACKGROUND" in normalized
-        or "SUMMARY" in normalized
-        or "FIELD" in normalized
-    ):
+    if "BACKGROUND" in normalized:
+        return "BACKGROUND"
+    if "SUMMARY" in normalized:
+        return "SUMMARY"
+    if "DESCRIPTION" in normalized or "FIELD" in normalized:
+        return "DESCRIPTION"
+    if "SPECIFICATION" in normalized:
         return "SPECIFICATION"
     if "TITLE" in normalized:
         return "TITLE"

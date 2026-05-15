@@ -1,11 +1,13 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChartRow, upsertChartRow } from "./claimChartStorage";
+import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChartRow, clearSearchNavigationTarget, loadSearchNavigationTarget, upsertChartRow } from "./claimChartStorage";
 
 type DocumentSummary = {
   id: string;
   title: string;
   sourceFile: string;
   ingestedAt: string;
+  assigneeName: string | null;
+  inventorNames: string[] | null;
 };
 
 type QueryResponse = {
@@ -29,17 +31,35 @@ type QueryResponse = {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 const PASSAGE_PREVIEW_LIMIT = 420;
+const INLINE_FACET_LIMIT = 5;
+
+type HighlightTerm = {
+  value: string;
+  allowRegex: boolean;
+};
+
+type HighlightSpan = {
+  start: number;
+  end: number;
+};
 
 export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [selectedAssigneeFacets, setSelectedAssigneeFacets] = useState<string[]>([]);
+  const [selectedInventorFacets, setSelectedInventorFacets] = useState<string[]>([]);
+  const [assigneeFacetQuery, setAssigneeFacetQuery] = useState("");
+  const [inventorFacetQuery, setInventorFacetQuery] = useState("");
   const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
+  const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
   const [submittedQueryText, setSubmittedQueryText] = useState("");
   const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
   const [savedToChartKey, setSavedToChartKey] = useState<string | null>(null);
+  const [focusedResultKey, setFocusedResultKey] = useState<string | null>(null);
+  const [pendingSearchNavigation, setPendingSearchNavigation] = useState(() => loadSearchNavigationTarget());
 
   useEffect(() => {
     void loadDocuments();
@@ -55,7 +75,59 @@ export default function App() {
     [documentsById, selectedDocumentIds]
   );
 
+  const assigneeFacets = useMemo(() => uniqueSortedValues(documents.map((doc) => doc.assigneeName)), [documents]);
+  const inventorFacets = useMemo(
+    () => uniqueSortedValues(documents.flatMap((doc) => doc.inventorNames ?? [])),
+    [documents]
+  );
+
+  const filteredAssigneeFacets = useMemo(
+    () => filterFacetValues(assigneeFacets, assigneeFacetQuery),
+    [assigneeFacets, assigneeFacetQuery]
+  );
+
+  const filteredInventorFacets = useMemo(
+    () => filterFacetValues(inventorFacets, inventorFacetQuery),
+    [inventorFacets, inventorFacetQuery]
+  );
+
+  const visibleAssigneeFacets = useMemo(() => {
+    if (assigneeFacets.length <= INLINE_FACET_LIMIT || assigneeFacetQuery.trim()) {
+      return filteredAssigneeFacets;
+    }
+
+    return assigneeFacets.slice(0, INLINE_FACET_LIMIT);
+  }, [assigneeFacetQuery, assigneeFacets, filteredAssigneeFacets]);
+
+  const visibleInventorFacets = useMemo(() => {
+    if (inventorFacets.length <= INLINE_FACET_LIMIT || inventorFacetQuery.trim()) {
+      return filteredInventorFacets;
+    }
+
+    return inventorFacets.slice(0, INLINE_FACET_LIMIT);
+  }, [filteredInventorFacets, inventorFacetQuery, inventorFacets]);
+
+  const visibleDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      const matchesAssignee =
+        selectedAssigneeFacets.length === 0 || (doc.assigneeName != null && selectedAssigneeFacets.includes(doc.assigneeName));
+      const matchesInventor =
+        selectedInventorFacets.length === 0 || (doc.inventorNames ?? []).some((name) => selectedInventorFacets.includes(name));
+      return matchesAssignee && matchesInventor;
+    });
+  }, [documents, selectedAssigneeFacets, selectedInventorFacets]);
+
+  const visibleDocumentIds = useMemo(() => new Set(visibleDocuments.map((doc) => doc.id)), [visibleDocuments]);
+
   const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+
+  useEffect(() => {
+    if (selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0) {
+      return;
+    }
+
+    setSelectedDocumentIds((current) => current.filter((id) => visibleDocumentIds.has(id)));
+  }, [selectedAssigneeFacets, selectedInventorFacets, visibleDocumentIds]);
 
   const runQuery = useCallback(async (docIds: string[], text: string) => {
     if (docIds.length === 0 || !text.trim()) return;
@@ -87,10 +159,57 @@ export default function App() {
   }, []);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedCitationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedToChartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const preloadDocuments = useCallback(async (docIds: string[]) => {
+    if (docIds.length === 0) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE}/documents/preload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: docIds }),
+      });
+    } catch {
+      // Preloading is opportunistic; query execution remains the source of truth.
+    }
+  }, []);
+
   useEffect(() => {
+    if (documents.length === 0) {
+      return;
+    }
+
+    const target = pendingSearchNavigation;
+    if (!target) {
+      return;
+    }
+
+    const nextDocumentIds = target.documentIds.filter((id) => documentsById.has(id));
+    if (nextDocumentIds.length === 0) {
+      clearSearchNavigationTarget();
+      setPendingSearchNavigation(null);
+      return;
+    }
+
+    setSelectedDocumentIds(nextDocumentIds);
+    setQueryText(target.queryText);
+    setLiveQueryEnabled(true);
+    setFocusedResultKey(target.resultKey);
+    setPendingSearchNavigation(null);
+    void preloadDocuments(nextDocumentIds);
+    void runQuery(nextDocumentIds, target.queryText);
+  }, [documents.length, documentsById, pendingSearchNavigation, preloadDocuments, runQuery]);
+
+  useEffect(() => {
+    if (!liveQueryEnabled) {
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void runQuery(selectedDocumentIds, queryText);
@@ -98,7 +217,39 @@ export default function App() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [queryText, selectedDocumentIds, runQuery]);
+  }, [liveQueryEnabled, queryText, selectedDocumentIds, runQuery]);
+
+  useEffect(() => {
+    if (!liveQueryEnabled || selectedDocumentIds.length === 0) {
+      return;
+    }
+
+    if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
+    preloadDebounceRef.current = setTimeout(() => {
+      void preloadDocuments(selectedDocumentIds);
+    }, 250);
+
+    return () => {
+      if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
+    };
+  }, [liveQueryEnabled, preloadDocuments, selectedDocumentIds]);
+
+  useEffect(() => {
+    if (!focusedResultKey) {
+      return;
+    }
+
+    const element = document.getElementById(resultElementId(focusedResultKey));
+    if (!element) {
+      return;
+    }
+
+    clearSearchNavigationTarget();
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    const timeout = window.setTimeout(() => setFocusedResultKey(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [focusedResultKey, queryResult]);
 
   async function loadDocuments() {
     try {
@@ -118,9 +269,31 @@ export default function App() {
   }
 
   function toggleDocument(documentId: string) {
+    setLiveQueryEnabled(true);
     setSelectedDocumentIds((current) =>
       current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId]
     );
+  }
+
+  function selectAllDocuments() {
+    setLiveQueryEnabled(true);
+    setSelectedDocumentIds(visibleDocuments.map((doc) => doc.id));
+  }
+
+  function clearDocuments() {
+    setLiveQueryEnabled(true);
+    setSelectedDocumentIds([]);
+  }
+
+  function toggleFacet(value: string, setFacetState: Dispatch<SetStateAction<string[]>>) {
+    setFacetState((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
+  }
+
+  function clearMetadataFacets() {
+    setSelectedAssigneeFacets([]);
+    setSelectedInventorFacets([]);
+    setAssigneeFacetQuery("");
+    setInventorFacetQuery("");
   }
 
   async function copyCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
@@ -139,7 +312,7 @@ export default function App() {
 
   function addMatchToChart(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
     try {
-      const chartRow = createChartRow(match, documentTitle);
+      const chartRow = createChartRow(match, documentTitle, queryText, selectedDocumentIds);
       upsertChartRow(chartRow);
 
       const matchKey = `${match.documentId}:${match.passageId}`;
@@ -161,12 +334,19 @@ export default function App() {
     return `${truncated.slice(0, lastSpace > 280 ? lastSpace : PASSAGE_PREVIEW_LIMIT).trim()}...`;
   }
 
+  function goToChart() {
+    window.location.hash = "#claim-chart-demo";
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (selectedDocumentIds.length === 0) {
       setError("Select at least one document first.");
       return;
     }
+
+    setLiveQueryEnabled(true);
+    void preloadDocuments(selectedDocumentIds);
     void runQuery(selectedDocumentIds, queryText);
   }
 
@@ -182,16 +362,92 @@ export default function App() {
         <form onSubmit={onSubmit} className="queryForm">
           <fieldset className="documentPicker">
             <legend>Documents</legend>
+            {assigneeFacets.length > 0 ? (
+              <div className="facetBlock">
+                <div className="facetHeader">
+                  <span>Assignee facets</span>
+                  <span className="facetHint">Type to find a specific assignee</span>
+                </div>
+                <input
+                  className="facetSearchInput"
+                  value={assigneeFacetQuery}
+                  onChange={(event) => setAssigneeFacetQuery(event.target.value)}
+                  placeholder="Filter assignees"
+                />
+                <div className="facetChips">
+                  {visibleAssigneeFacets.map((assigneeName) => {
+                    const active = selectedAssigneeFacets.includes(assigneeName);
+                    return (
+                      <button
+                        key={assigneeName}
+                        type="button"
+                        className={`facetChip${active ? " facetChipActive" : ""}`}
+                        onClick={() => toggleFacet(assigneeName, setSelectedAssigneeFacets)}
+                      >
+                        {assigneeName}
+                      </button>
+                    );
+                  })}
+                </div>
+                {assigneeFacets.length > INLINE_FACET_LIMIT && !assigneeFacetQuery.trim() ? (
+                  <p className="facetHint">Showing the first {INLINE_FACET_LIMIT} assignees. Type to narrow the full list.</p>
+                ) : null}
+                {assigneeFacetQuery.trim() && visibleAssigneeFacets.length === 0 ? (
+                  <p className="facetHint">No assignees match that filter.</p>
+                ) : null}
+              </div>
+            ) : null}
+            {inventorFacets.length > 0 ? (
+              <div className="facetBlock">
+                <div className="facetHeader">
+                  <span>Inventor facets</span>
+                  <span className="facetHint">Type to find a specific inventor</span>
+                </div>
+                <input
+                  className="facetSearchInput"
+                  value={inventorFacetQuery}
+                  onChange={(event) => setInventorFacetQuery(event.target.value)}
+                  placeholder="Filter inventors"
+                />
+                <div className="facetChips facetChipsScrollable">
+                  {visibleInventorFacets.map((inventorName) => {
+                    const active = selectedInventorFacets.includes(inventorName);
+                    return (
+                      <button
+                        key={inventorName}
+                        type="button"
+                        className={`facetChip${active ? " facetChipActive" : ""}`}
+                        onClick={() => toggleFacet(inventorName, setSelectedInventorFacets)}
+                      >
+                        {inventorName}
+                      </button>
+                    );
+                  })}
+                </div>
+                {inventorFacets.length > INLINE_FACET_LIMIT && !inventorFacetQuery.trim() ? (
+                  <p className="facetHint">Showing the first {INLINE_FACET_LIMIT} inventors. Type to narrow the full list.</p>
+                ) : null}
+                {inventorFacetQuery.trim() && visibleInventorFacets.length === 0 ? <p className="facetHint">No inventors match that filter.</p> : null}
+              </div>
+            ) : null}
             <div className="documentPickerActions">
-              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds(documents.map((doc) => doc.id))}>
-                Select all
+              <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
+                Select visible
               </button>
-              <button type="button" className="secondaryButton" onClick={() => setSelectedDocumentIds([])}>
+              <button type="button" className="secondaryButton" onClick={clearDocuments}>
                 Clear
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={clearMetadataFacets}
+                disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
+              >
+                Clear facets
               </button>
             </div>
             <div className="documentOptions">
-              {documents.map((doc) => (
+              {visibleDocuments.map((doc) => (
                 <label key={doc.id} className="documentOption">
                   <input
                     type="checkbox"
@@ -204,6 +460,7 @@ export default function App() {
                   </span>
                 </label>
               ))}
+              {visibleDocuments.length === 0 ? <p className="subtitle">No documents match the current metadata facets.</p> : null}
             </div>
           </fieldset>
 
@@ -212,7 +469,10 @@ export default function App() {
             <textarea
               rows={3}
               value={queryText}
-              onChange={(event) => setQueryText(event.target.value)}
+              onChange={(event) => {
+                setLiveQueryEnabled(true);
+                setQueryText(event.target.value);
+              }}
               spellCheck={false}
             />
           </label>
@@ -224,7 +484,7 @@ export default function App() {
 
         {selectedDocuments.length > 0 ? (
           <p className="docMeta">
-            Searching {selectedDocuments.length} of {documents.length} document(s):{" "}
+            Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
             {selectedDocuments.map((doc) => doc.id).join(", ")}
           </p>
         ) : null}
@@ -241,9 +501,14 @@ export default function App() {
         <div className="results">
           {queryResult?.result.matches.map((match) => {
             const documentTitle = documentsById.get(match.documentId)?.title ?? match.documentId;
+            const resultKey = `${match.documentId}:${match.passageId}`;
 
             return (
-              <article key={`${match.documentId}:${match.passageId}`} className="resultCard">
+              <article
+                key={resultKey}
+                id={resultElementId(resultKey)}
+                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}`}
+              >
                 <header>
                   <span className="documentLabel">
                     {highlightText(documentTitle, highlightTerms)}
@@ -254,20 +519,25 @@ export default function App() {
                   <span>Passage {match.passageIndex}</span>
                   {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
                   {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
-                  <button
-                    type="button"
-                    className="copyCitationButton"
-                    onClick={() => void copyCitation(match, documentTitle)}
-                  >
-                    {copiedCitationKey === `${match.documentId}:${match.passageId}` ? "Copied" : "Copy citation"}
-                  </button>
-                  <button
-                    type="button"
-                    className="copyCitationButton"
-                    onClick={() => addMatchToChart(match, documentTitle)}
-                  >
-                    {savedToChartKey === `${match.documentId}:${match.passageId}` ? "Added to chart" : "Add to chart"}
-                  </button>
+                  <div className="resultActions">
+                    <button
+                      type="button"
+                      className="copyCitationButton"
+                      onClick={() => void copyCitation(match, documentTitle)}
+                    >
+                      {copiedCitationKey === resultKey ? "Copied" : "Copy citation"}
+                    </button>
+                    <button
+                      type="button"
+                      className="copyCitationButton"
+                      onClick={() => addMatchToChart(match, documentTitle)}
+                    >
+                      {savedToChartKey === resultKey ? "Added to chart" : "Add to chart"}
+                    </button>
+                    <button type="button" className="copyCitationButton" onClick={goToChart}>
+                      View chart
+                    </button>
+                  </div>
                 </header>
 
                 <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
@@ -303,46 +573,87 @@ function formatCitation(match: QueryResponse["result"]["matches"][number], docum
   return `${documentTitle} (${match.documentId}), ${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${anchor}`;
 }
 
-function createChartRow(match: QueryResponse["result"]["matches"][number], documentTitle: string): ChartRow {
+function createChartRow(
+  match: QueryResponse["result"]["matches"][number],
+  documentTitle: string,
+  queryText: string,
+  selectedDocumentIds: string[]
+): ChartRow {
   const location = match.paragraphId != null ? `¶[${match.paragraphId}]` : match.claimNo != null ? `Claim ${match.claimNo}` : `Passage ${match.passageIndex}`;
 
   return {
     id: `${match.documentId}:${match.passageId}`,
     claim: match.claimNo != null ? `Claim ${match.claimNo}` : "Claim ?",
+    elementLabel: "",
     reference: `${documentTitle} (${match.documentId})`,
     location,
+    citation: formatCitation(match, documentTitle),
     excerpt: match.passageText,
     reason: match.reasons.join("; "),
     elementText: "",
     notes: `${match.sectionType}${match.sectionTitle ? ` ${match.sectionTitle}` : ""}, ${location}`,
+    sourceDocumentIds: selectedDocumentIds,
+    sourceQueryText: queryText,
+    sourceResultKey: `${match.documentId}:${match.passageId}`,
   };
 }
 
+function resultElementId(resultKey: string) {
+  return `result-${resultKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function uniqueSortedValues(values: Array<string | null | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value && value.trim().length > 0)))].sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
+function filterFacetValues(values: string[], query: string) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return values;
+  }
+
+  const normalizedQuery = trimmedQuery.toLocaleLowerCase();
+  return values.filter((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+}
+
 function extractHighlightTerms(queryText: string) {
-  const terms: string[] = [];
+  const terms: HighlightTerm[] = [];
 
   for (const clause of splitQueryClauses(queryText)) {
+    const containsRegexMatch = clause.match(/^contains\.regex\s*:\s*(?:"([^"]+)"|(.+))$/i);
+    if (containsRegexMatch) {
+      terms.push({ value: (containsRegexMatch[1] ?? containsRegexMatch[2] ?? "").trim(), allowRegex: true });
+      continue;
+    }
+
     const containsMatch = clause.match(/^contains\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (containsMatch) {
-      terms.push((containsMatch[1] ?? containsMatch[2] ?? "").trim());
+      terms.push({ value: (containsMatch[1] ?? containsMatch[2] ?? "").trim(), allowRegex: false });
       continue;
     }
 
     const metadataMatch = clause.match(/^(?:meta|metadata)\.[A-Za-z0-9_.-]+\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (metadataMatch) {
-      terms.push((metadataMatch[1] ?? metadataMatch[2] ?? "").trim());
+      terms.push({ value: (metadataMatch[1] ?? metadataMatch[2] ?? "").trim(), allowRegex: false });
       continue;
     }
 
     const elementMatch = clause.match(/^(?:cpc|paragraph|claim|figure)\s*:\s*(?:"([^"]+)"|(.+))$/i);
     if (elementMatch) {
-      terms.push((elementMatch[1] ?? elementMatch[2] ?? "").trim());
+      terms.push({ value: (elementMatch[1] ?? elementMatch[2] ?? "").trim(), allowRegex: false });
     }
   }
 
-  return [...new Map(terms.filter(Boolean).map((term) => [term.toLowerCase(), term])).values()].sort(
-    (left, right) => right.length - left.length
-  );
+  const uniqueTerms = new Map<string, HighlightTerm>();
+  for (const term of terms.filter((term) => term.value)) {
+    const key = term.value.toLowerCase();
+    const existing = uniqueTerms.get(key);
+    uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);
+  }
+
+  return [...uniqueTerms.values()].sort((left, right) => right.value.length - left.value.length);
 }
 
 function splitQueryClauses(queryText: string) {
@@ -403,23 +714,102 @@ function stripNotOperators(clause: string) {
   return nextClause.replace(/^\(+\s*/, "").replace(/\s*\)+$/, "").trim();
 }
 
-function highlightText(text: string, terms: string[]): ReactNode {
+function highlightText(text: string, terms: HighlightTerm[]): ReactNode {
   if (terms.length === 0) {
     return text;
   }
 
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
-  return text.split(pattern).map((part, index) =>
-    terms.some((term) => term.toLowerCase() === part.toLowerCase()) ? (
-      <mark key={`${part}-${index}`} className="queryHighlight">
-        {part}
+  const spans = collectHighlightSpans(text, terms);
+  if (spans.length === 0) {
+    return text;
+  }
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  spans.forEach((span, index) => {
+    if (span.start > cursor) {
+      nodes.push(text.slice(cursor, span.start));
+    }
+
+    nodes.push(
+      <mark key={`${span.start}-${span.end}-${index}`} className="queryHighlight">
+        {text.slice(span.start, span.end)}
       </mark>
-    ) : (
-      part
-    )
-  );
+    );
+    cursor = span.end;
+  });
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function collectHighlightSpans(text: string, terms: HighlightTerm[]) {
+  const spans: HighlightSpan[] = [];
+
+  for (const term of terms) {
+    if (term.allowRegex) {
+      spans.push(...findRegexSpans(text, term.value));
+      continue;
+    }
+
+    const literalMatches = findLiteralSpans(text, term.value);
+    spans.push(...literalMatches);
+  }
+
+  return mergeHighlightSpans(spans);
+}
+
+function findLiteralSpans(text: string, term: string) {
+  const spans: HighlightSpan[] = [];
+  const normalizedText = text.toLowerCase();
+  const normalizedTerm = term.toLowerCase();
+  let index = normalizedText.indexOf(normalizedTerm);
+
+  while (index !== -1) {
+    spans.push({ start: index, end: index + term.length });
+    index = normalizedText.indexOf(normalizedTerm, index + term.length);
+  }
+
+  return spans;
+}
+
+function findRegexSpans(text: string, pattern: string) {
+  const spans: HighlightSpan[] = [];
+  let regex: RegExp;
+
+  try {
+    regex = new RegExp(pattern, "gi");
+  } catch {
+    return spans;
+  }
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match[0].length === 0) {
+      regex.lastIndex += 1;
+      continue;
+    }
+
+    spans.push({ start: match.index, end: match.index + match[0].length });
+  }
+
+  return spans;
+}
+
+function mergeHighlightSpans(spans: HighlightSpan[]) {
+  const ordered = [...spans].sort((left, right) => left.start - right.start || right.end - left.end);
+  const merged: HighlightSpan[] = [];
+
+  for (const span of ordered) {
+    const last = merged[merged.length - 1];
+    if (!last || span.start >= last.end) {
+      merged.push(span);
+    }
+  }
+
+  return merged;
 }

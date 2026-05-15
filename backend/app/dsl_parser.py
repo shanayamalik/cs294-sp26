@@ -5,9 +5,12 @@ from dataclasses import dataclass
 
 from .models import (
     AndExpression,
+    ClaimFilter,
     ContainsFilter,
     CpcFilter,
+    FigureFilter,
     FilterExpression,
+    HeadingFilter,
     MetadataFilter,
     NotExpression,
     OrExpression,
@@ -17,6 +20,7 @@ from .models import (
     SectionFilter,
     coerce_section_type,
 )
+from .synonym_sets import synonym_contains_filters
 
 
 @dataclass
@@ -151,7 +155,8 @@ class _ExpressionParser:
             raise ValueError(f"Expected query clause, got {token.value}.")
 
         self.index += 1
-        return FilterExpression(kind="filter", filter=_parse_clause(token.value))
+        parsed_clause = _parse_clause(token.value)
+        return parsed_clause if isinstance(parsed_clause, (FilterExpression, AndExpression, OrExpression, NotExpression)) else FilterExpression(kind="filter", filter=parsed_clause)
 
     def _match(self, kind: str) -> bool:
         if self._current() and self._current().kind == kind:
@@ -165,6 +170,19 @@ class _ExpressionParser:
 
 
 def _parse_clause(clause: str):
+    synonym_match = re.match(r'^(synonym_of|termset):(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if synonym_match:
+        operator = synonym_match.group(1).lower()
+        seed = (synonym_match.group(2) or synonym_match.group(3) or "").strip()
+        if not seed:
+            raise ValueError(f"{operator} filter requires a non-empty term.")
+
+        contains_expressions = [
+            FilterExpression(kind="filter", filter=contains_filter)
+            for contains_filter in synonym_contains_filters(seed)
+        ]
+        return contains_expressions[0] if len(contains_expressions) == 1 else OrExpression(kind="or", expressions=contains_expressions)
+
     section_match = re.match(r"^section:([A-Za-z_\-\s]+)$", clause, flags=re.IGNORECASE)
     if section_match:
         section_type = coerce_section_type(section_match.group(1))
@@ -172,12 +190,19 @@ def _parse_clause(clause: str):
             raise ValueError(f"Unknown section type: {section_match.group(1)}")
         return SectionFilter(kind="section", value=section_type)
 
-    contains_match = re.match(r'^contains:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    contains_match = re.match(r'^contains(?:\.(regex))?:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if contains_match:
-        phrase = (contains_match.group(1) or contains_match.group(2) or "").strip()
+        phrase = (contains_match.group(2) or contains_match.group(3) or "").strip()
         if not phrase:
             raise ValueError("contains filter requires a non-empty phrase.")
-        return ContainsFilter(kind="contains", value=phrase)
+        return ContainsFilter(kind="contains", value=phrase, mode="regex" if contains_match.group(1) else "literal")
+
+    heading_match = re.match(r'^(?:heading|sectionTitle):(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if heading_match:
+        heading = (heading_match.group(1) or heading_match.group(2) or "").strip()
+        if not heading:
+            raise ValueError("heading filter requires a non-empty value.")
+        return HeadingFilter(kind="heading", value=heading)
 
     cpc_match = re.match(r'^cpc:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if cpc_match:
@@ -188,6 +213,18 @@ def _parse_clause(clause: str):
     paragraph_match = re.match(r'^paragraph:([0-9]+)$', clause, flags=re.IGNORECASE)
     if paragraph_match:
         return ParagraphFilter(kind="paragraph", value=paragraph_match.group(1))
+
+    claim_match = re.match(r'^claim:([0-9]+)$', clause, flags=re.IGNORECASE)
+    if claim_match:
+        return ClaimFilter(kind="claim", value=int(claim_match.group(1)))
+
+    figure_match = re.match(r'^figure:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if figure_match:
+        figure_ref = (figure_match.group(1) or figure_match.group(2) or "").strip()
+        if not figure_ref:
+            raise ValueError("figure filter requires a non-empty reference.")
+        return FigureFilter(kind="figure", value=figure_ref)
+
     metadata_match = re.match(r'^meta(?:data)?\.([A-Za-z][A-Za-z0-9_.-]*):(.*)$', clause, flags=re.IGNORECASE)
     if metadata_match:
         field = metadata_match.group(1).strip()

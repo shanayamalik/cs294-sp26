@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .dsl_parser import parse_dsl
-from .models import ParseDocumentRequest, QueryRequest
+from .models import ParseDocumentRequest, PreloadDocumentsRequest, QueryRequest
 from .parser import parse_patent_text
 from .query_engine import execute_query_across_documents
 from .source_loader import load_source_text
 from .store import DocumentStore
+from .synonym_sets import synonym_seed_summaries
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 RAW_DATA_DIR = BACKEND_ROOT / "data" / "raw"
@@ -39,8 +41,27 @@ def health() -> dict[str, str]:
 
 
 @app.get("/documents")
-def documents() -> dict[str, list[dict[str, str]]]:
+def documents() -> dict[str, list[dict[str, Any]]]:
     return {"documents": store.list()}
+
+
+@app.post("/documents/preload")
+def preload_documents(payload: PreloadDocumentsRequest) -> dict[str, Any]:
+    return {
+        "requestedDocuments": len(payload.documentIds),
+        "preloadedDocuments": store.preload(payload.documentIds),
+        "stats": store.stats(),
+    }
+
+
+@app.get("/debug/store-stats")
+def store_stats() -> dict[str, int | float]:
+    return store.stats()
+
+
+@app.get("/query/synonym-sets")
+def query_synonym_sets() -> dict[str, list[dict[str, list[str] | str]]]:
+    return {"synonymSets": synonym_seed_summaries()}
 
 
 @app.post("/documents/parse")

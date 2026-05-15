@@ -1,11 +1,13 @@
 %%
-%% patent_analysis_tool.tex — Programmatic Patent Document Analysis Tool
+%% patent_analysis_tool.tex — Programmatic Patent Analysis Environment
 %% CS 294-184 Final Project Part 2
 %% Based on sample-sigconf-authordraft.tex from the acmart package.
 %%
 \documentclass[sigconf]{acmart}
+\usepackage{graphicx}
 \usepackage{microtype}
 \usepackage{listings}
+\usepackage{needspace}
 \usepackage{xcolor}
 \emergencystretch=1em
 
@@ -29,26 +31,31 @@
 
 %% Listings style for DSL code examples
 \lstdefinelanguage{PatentDSL}{
-  morekeywords={AND, OR, NOT, section, contains, cpc, meta, paragraph},
+  morekeywords={AND, OR, NOT, section, contains, cpc, meta, paragraph, claim, figure, heading, sectionTitle, synonym_of, termset},
   sensitive=false,
   morestring=[b]",
 }
 \lstset{
   language=PatentDSL,
-  basicstyle=\ttfamily\small,
+  basicstyle=\ttfamily\footnotesize,
   keywordstyle=\bfseries,
   stringstyle=\color{gray},
   frame=single,
   breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
   captionpos=b,
 }
+
+\newcommand{\DocSectionPassage}{\texttt{Document} $\to$ \texttt{Section} $\to$ \texttt{Passage}}
 
 %%
 %% Start of document
 %%
 \begin{document}
 
-\title{A Programmatic Document Analysis Environment for Patent Examination}
+\title{A Programmatic Patent Analysis Environment for Structured Prior-Art Search and Claim-Chart Drafting}
 
 \author{Shanaya Malik}
 \email{shanaya_malik@berkeley.edu}
@@ -72,7 +79,24 @@
 %%  ABSTRACT
 %% ====================================================================
 \begin{abstract}
-% TODO
+Patent examination requires experts to move repeatedly between corpus scoping,
+targeted search, close reading, and claim-to-evidence mapping, but current
+tools largely return ranked documents and leave section selection, citation
+recovery, and claim-chart drafting to manual work. To understand what a better
+abstraction should support, we conducted a contextual inquiry study with ten
+practicing patent examiners and found recurring needs for section-aware
+retrieval, pinpoint citation, iterative query refinement, and tighter
+integration between search and synthesis. We present a programmatic patent
+analysis environment that addresses these needs by representing each patent as
+a structured \DocSectionPassage{} hierarchy,
+exposing a composable passage-level DSL over structural, textual, and metadata
+predicates, and preserving provenance as results move into a connected
+evidence-capture workspace. Our prototype combines a FastAPI backend, a query
+execution model over parsed patent passages, and a React frontend for corpus
+scoping, live refinement, and lightweight claim-chart drafting. The paper
+contributes the design rationale, implementation, and technical challenges of
+treating prior-art search as an inspectable, programmable workflow rather than
+ad hoc document inspection.
 \end{abstract}
 
 \begin{CCSXML}
@@ -140,19 +164,21 @@ any tool accessible to working examiners.
 \smallskip\noindent\textbf{Evidence from practitioners.}
 Through a contextual inquiry study with ten practicing patent examiners (reported
 in full in Sections~3--4), we identified five recurring needs that current
-tooling does not address. Two of these needs are particularly relevant to the
-design of a document analysis environment. First, examiners need
-\emph{section-aware retrieval}: P05 explicitly described wanting hits in the
-background and detailed description sections, not in the abstract or claims,
-because the specification is where the technical teaching that maps to claim
-elements is found. Section type is a structural property of every patent
-document, yet no current tool exposes it as a query parameter. Second,
-examiners need \emph{pinpoint citation}: once a relevant passage is located,
-examiners must record its position in the document for citation in the office
-action. For post-2001 USPTO publications, this position is a numbered
-paragraph anchor (e.g., \texttt{[0042]}); for pre-AIA granted patents, it is a
-column-and-line number. This pinpoint address is embedded in the document's
-structure, yet retrieving by it is not possible in any current tool.
+tooling does not address: synonym generation, filing-date filtering,
+claim-mapping handoff, section-aware passage inspection, and iterative query
+refinement. These are not edge cases. They recur inside the ordinary path from
+reading a claim to writing an office action. For example, P05 explicitly wanted
+hits in the background and detailed description sections rather than the
+abstract or claims, because the specification is where the technical teaching
+that maps to claim elements is typically found. P03 showed that determining
+which references were even legally admissible could require tedious manual date
+inspection across candidate documents. P01 emphasized the effort required to
+recover exact paragraph-level locations for later citation, and multiple
+participants described the move from search into claim mapping as a separate,
+mostly manual activity carried out in Word, paper notes, or personal templates.
+Taken together, these observations make the need important not just because the
+workflow is slow, but because critical legal-technical judgments are being made
+through brittle manual transitions.
 
 \smallskip\noindent\textbf{The root cause: documents as opaque blobs.}
 A further structural problem unifies all five needs: patent documents are
@@ -166,27 +192,64 @@ relevant section, and scan manually. This is not a failure of individual tools
 but a consequence of the retrieval model: when documents are the unit of
 retrieval, there is no path to passage-level precision.
 
+\smallskip\noindent\textbf{Why this gap persists.}
+This problem has been hard to solve because patent search is usually framed as a
+retrieval problem rather than a workflow problem. Existing systems compete on
+coverage, ranking, and document access, which makes sense if the main question
+is which references to open next. Our study suggests that this framing is too
+narrow for examiner work. Examiners do not stop at document retrieval: they
+must interpret where relevant teaching appears, verify admissibility, preserve
+citation anchors, and organize evidence against claim elements. Those steps cut
+across information retrieval, document structure, and downstream synthesis, so
+they tend to fall between existing tool categories. The workflow is also hard to
+study directly because much examiner practice happens inside specialized,
+institutional settings and proprietary tool ecosystems, which means the
+downstream coordination work is easier to miss than the search box itself.
+
 \smallskip\noindent\textbf{Our approach and expected outcomes.}
 We propose a different approach. Rather than building another document-level
-search interface, we expose patent documents as \emph{structured, queryable
-data}. Our system parses each patent into a \texttt{Document~$\to$~Section~$\to$~Passage}
-hierarchy and extracts all available metadata fields. Examiners then write
-queries in a minimal domain-specific language (DSL) that combines structural
+search interface, we present a \emph{programmatic patent analysis environment}
+that combines corpus scoping, structured passage-level querying, and evidence
+capture for claim-chart drafting. The environment parses each patent into a
+\DocSectionPassage{} hierarchy, extracts all available
+metadata fields, and lets examiners search a scoped document set with a minimal
+domain-specific language (DSL) that combines structural
 filters---\texttt{section:SPECIFICATION}, \texttt{paragraph:0042}---with
 content filters and metadata constraints, all composable with Boolean
-operators. The query executes over the passage-level representation and returns
-matched passages with their full provenance: which document, which section,
-which paragraph anchor, and neighboring context.
+operators. Queries execute over the passage-level representation and return
+matched passages with their full provenance, while the same workspace supports
+collecting those passages into a claim-chart workflow rather than forcing a
+handoff to external notes or templates.
+
+If successful, this approach changes the unit of work from ``open documents and
+manually reconstruct context'' to ``inspect, refine, and reuse structured
+evidence.'' Examiners can keep the active corpus explicit, express search logic
+in a reusable form, see why a passage matched, and carry that passage forward
+with its citation anchor and query provenance intact. The intended outcome is
+not fully automated examination; it is a workflow in which expert judgment is
+still central, but the surrounding search and evidence-management machinery is
+more inspectable, reproducible, and better aligned with how the work is already
+done.
+
+The key PL contribution is the abstraction this gives users. Instead of issuing
+opaque keyword searches over whole documents, examiners program against an
+explicit representation: a selected corpus of structured patent objects, an
+executable query expression over sections and passages, and an evidence record
+that carries both the retrieved passage and the program state that produced it.
+This is the sense in which our system is a programming intervention rather than
+only a search interface: it exposes a new language and execution model for a
+domain task that was previously performed through ad hoc combinations of search,
+scrolling, and manual note-taking.
 
 \smallskip\noindent\textbf{Why a DSL fits this population.}
 This design is motivated by two key insights from our need-finding. First,
 patent examiners are not casual users: they are technical specialists who
 write Boolean search strings as a core job skill, and several participants
 described current query interfaces as too limited rather than too complex
-(P04, P07, P10). A textual DSL is therefore appropriate for this population
+(P04, P07, P10). A textual DSL therefore appears appropriate for this population
 in a way it might not be for a general consumer audience. Second, the
 iterative, refinement-based search strategy that examiners actually use (Need~5)
-is precisely what a composable query language supports: an examiner can start
+maps well to what a composable query language supports: an examiner can start
 with a broad \texttt{section:CLAIMS} filter, observe the results, narrow with
 \texttt{AND contains:"neural interface"}, and further restrict with
 \texttt{AND NOT paragraph:0001} to skip boilerplate preambles. Each refinement
@@ -195,23 +258,24 @@ GUI tool.
 
 The contributions of this paper are as follows:
 \begin{itemize}
-  \item We describe a passage-level document model for patent text that
-    exposes section type, numbered paragraph anchors, claim structure, and
-    rich patent metadata as first-class query targets, grounded in the
-    structural needs identified through contextual inquiry.
-  \item We define a minimal DSL for composable patent queries, supporting
-    \texttt{section:}, \texttt{contains:}, \texttt{paragraph:},
-    \texttt{cpc:}, and \texttt{meta.} filters with full Boolean logic
-    (\texttt{AND}, \texttt{OR}, \texttt{NOT}, parentheses), and describe its
-    design rationale in terms of the five needs from our study.
+  \item We present a programmatic patent analysis environment that combines
+    corpus scoping, structured passage-level querying, and evidence capture
+    for claim-chart drafting, reframing prior-art search as a connected
+    analysis workflow rather than a document-level retrieval task followed by
+    manual synthesis.
+  \item We describe the passage-level document model and composable query DSL
+    that realize this environment, exposing section type, numbered paragraph
+    anchors, claim structure, and patent metadata as first-class query targets
+    grounded in the needs identified through contextual inquiry.
   \item We present a prototype implementation---a FastAPI backend with a
     React frontend---that parses USPTO-format patent documents (both
-    plain-text and text-extractable PDF) into the passage-level model and
-    executes DSL queries with passage-level results, including neighboring
-    context and match provenance.
+    plain-text and text-extractable PDF), executes passage-level queries over
+    a scoped corpus, and carries matched evidence into a lightweight
+    claim-chart workspace.
   \item We characterize the open technical challenges in this design space,
-    including document parsing fidelity, query expressiveness limits, and
-    the performance tradeoffs of in-memory passage indexing at corpus scale.
+    including document parsing fidelity, query expressiveness limits, and the
+    performance tradeoffs of passage-level indexing and interactive corpus
+    scoping at larger scales.
 \end{itemize}
 
 
@@ -220,21 +284,213 @@ The contributions of this paper are as follows:
 %% ====================================================================
 \section{Related Work}
 
+Related work on our project falls into four overlapping strands: research on
+sensemaking and exploratory information seeking, work on patent retrieval and
+technical document-analysis tools, prior systems for structured query and
+structured retrieval, and methodological work on contextual inquiry for
+specialized expert practice. Organizing the literature this way clarifies the
+gap our prototype addresses. Prior HCI and information-seeking research helps
+explain why patent examination is cognitively difficult; prior patent-search
+systems show what current tools optimize for; structured-query and
+structured-retrieval work show how richer representations can support more
+precise access; and contextual-inquiry methods explain how we grounded the
+design in observed workflow rather than speculation. Our contribution sits at
+the intersection of these strands: it is not only a search interface, not only
+an observational HCI study, and not only a DSL, but a workflow-oriented
+environment whose representation and language were shaped by need-finding. The
+consistent gap across these strands is that prior work says much more about how
+to retrieve, rank, or study information work than about how to carry
+fine-grained evidence forward into the structured synthesis that expert patent
+analysis requires.
+
 \subsection{Sensemaking and Information Foraging in Professional Technical Work}
 
-% TODO
+The cognitive demands of patent examination have strong parallels in prior work
+on sensemaking and information foraging. Pirolli and Card describe complex
+analysis as movement between a foraging loop, in which analysts gather
+potentially relevant information, and a sensemaking loop, in which they
+structure and interpret what they have found~\cite{Pirolli2005}. Russell
+et al. similarly argue that much of the cost of complex information work lies
+not only in finding information, but in organizing it into representations that
+support judgment~\cite{Russell1993}. Patent examination follows exactly this
+pattern: examiners search for potentially relevant prior art, but the harder
+step is often determining which passages matter, how they relate to specific
+claim elements, and how to preserve those judgments for office-action writing.
+
+This makes patent examination closer to exploratory search than to simple
+lookup. Marchionini characterizes exploratory search as search undertaken to
+learn, investigate, and iteratively refine understanding rather than simply
+retrieve a known fact~\cite{Marchionini2006}. White and Roth extend that
+framing by arguing that exploratory search systems should support users as they
+formulate, reformulate, organize, and compare information over time~\cite{White2009}.
+Hearst likewise emphasizes that faceting, query reformulation, and result
+inspection are central parts of interactive search rather than secondary
+interface details~\cite{Hearst2009}. These perspectives help frame our
+participants' behavior: examiners repeatedly changed terminology, narrowed the
+active corpus, and compared passages in context before deciding what evidence
+was worth reusing.
+
+That exploratory-search framing also has deeper roots in classic information-
+seeking research. Bates's berrypicking model treats search as a non-linear
+process in which the query evolves as the user learns from intermediate
+results~\cite{Bates1989}. Kuhlthau's information-search-process model likewise
+emphasizes uncertainty, reformulation, and progressively changing
+understanding over the course of inquiry~\cite{Kuhlthau1991}. Ellis similarly
+argues that information seeking is better described as a repertoire of
+activities such as browsing, chaining, differentiating, and monitoring than as
+a single query-response exchange~\cite{Ellis1989}. These earlier models help
+explain why patent examination does not fit systems optimized for one-shot
+retrieval: the work is iterative, opportunistic, and shaped by what the
+examiner learns from each partial result.
+
+Related observations appear in software engineering and other professional
+technical domains. Ko et al. found that developers navigating large codebases
+must repeatedly search for scattered information and reconstruct reasoning
+chains across files~\cite{Ko2006}. Storey et al. showed that tool designers
+often assume a single cognitive strategy even though expert users alternate
+among top-down, bottom-up, and opportunistic approaches~\cite{Storey1999}.
+Nersessian's account of model-based reasoning likewise emphasizes that expert
+work depends on constructing and manipulating intermediate representations, not
+just retrieving facts~\cite{Nersessian2008}. These studies help explain why
+document retrieval alone is not enough for patent examination: the work also
+requires preserving context, structuring evidence, and supporting iterative
+reinterpretation.
+
+At the same time, prior sensemaking research does not directly address the
+particular combination of legal interpretation, technical comprehension, and
+evidentiary traceability that defines patent examination. Our work builds on
+these studies by treating patent analysis as a form of structured document work
+in which retrieval, interpretation, and evidence reuse must be supported within
+the same environment. In that sense, this strand explains why the work is hard,
+but not yet what a tool should preserve as the unit of reusable evidence.
 
 \subsection{Tools for Patent Search and Document Analysis}
 
-% TODO
+Work on patent retrieval has historically focused on search coverage, ranking,
+classification, and recall-oriented retrieval. Lupu et al. survey this space
+and show that while patent search systems have improved substantially as
+retrieval engines, relevance assessment and downstream analytical support remain
+open problems~\cite{Lupu2013}. That diagnosis still describes the landscape of
+many public and commercial systems. Tools such as Google Patents, PATENTSCOPE,
+Derwent Innovation, PatSnap, and the USPTO's own search environments provide
+large-scale patent access, classification search, citation links, and, in some
+cases, semantic or AI-assisted retrieval. But they still center the workflow on
+retrieved documents rather than on passage-level evidence objects tied to claim
+elements.
+
+The research literature around patent retrieval shows the same historical
+emphasis. Work in the CLEF-IP community helped establish patent retrieval as a
+benchmark-driven information-retrieval problem, especially around prior-art
+search, multilingual retrieval, and evaluation methodology~\cite{Piroi2011}.
+Other work focused on improving retrieval effectiveness through better query
+formulation over structured patent documents~\cite{Magdy2010} and through query
+expansion techniques such as citation analysis~\cite{Mahdabi2013}. These
+contributions were important because they treated patents as a distinct IR
+domain with unusual document structure and difficult relevance judgments. At
+the same time, they mostly optimized which references should be retrieved or
+ranked, not how an examiner should inspect, preserve, and reuse specific
+passages once a promising reference has been found.
+
+The broader search-interface literature makes that limitation clearer.
+Interactive search systems often improve access through facets, query
+suggestions, aggregation, and result previews~\cite{Hearst2009,White2009}, but
+those gains do not by themselves address the downstream evidentiary work patent
+examiners must perform. In other words, a tool can be a strong retrieval
+interface while still leaving the hardest interpretive and synthesis steps
+outside the system. That distinction matters in our domain because examiners
+are not only deciding which document to open next; they are assembling legally
+usable support for particular claim limitations.
+
+This gap matters because patent examiners do not stop once they have a ranked
+list. They must determine where relevant teaching appears, whether it occurs in
+the right section of the patent, whether the source is legally admissible, and
+how the resulting evidence should be mapped to claim limitations. Our findings
+therefore align with Lupu et al.'s observation that assessment remains a weak
+point, but extend it in a more workflow-oriented direction: what is missing is
+not only better ranking, but better support for the interpretive and
+synthesis-oriented work that follows retrieval.
+
+Outside the patent domain, a related design space appears in systems that help
+users work across large structured corpora rather than isolated documents.
+Program comprehension tools, for example, often help developers move among
+related artifacts while maintaining context, but they rarely need to preserve
+citeable evidence for downstream legal-style reasoning~\cite{Ko2006,Storey1999}.
+Our project differs from both patent search tools and cross-document analysis
+tools in that it connects passage retrieval, structural provenance, and
+evidence capture into one continuous workflow. The key distinction is therefore
+not merely domain specificity, but where the workflow boundary is drawn: prior
+systems mainly stop at retrieval quality, whereas our design treats retrieval
+and evidence assembly as part of the same tool problem.
 
 \subsection{Domain-Specific Languages for Structured Document Access}
 
-% TODO
+Our tool also draws on a long tradition of structured query languages and
+retrieval systems that expose domain structure rather than hiding it behind a
+single keyword box. Chamberlin and Boyce's SEQUEL showed that a query language
+can expose a compositional, human-readable interface over structured data while
+remaining expressive enough to encode complex information requests~\cite{Chamberlin1974}.
+The core idea relevant to our work is not SQL's relational model per se, but
+the broader design principle that a domain-specific query language can serve as
+both an interaction medium and a reusable artifact.
+
+This strand of work also connects to the exploratory-search literature above.
+If users refine their understanding by making local, inspectable changes, then
+a query language is valuable not only because it is expressive, but because it
+gives the user a persistent representation of search intent that can be edited
+and reused~\cite{Marchionini2006,White2009}. That framing helps explain why
+our project uses a textual DSL rather than only a point-and-click filter panel:
+the query itself becomes part of the reasoning artifact, not just a transient
+UI state.
+
+There is also a connection to structured document retrieval. Piwowarski and
+Dupret argue that classical information-retrieval models are poorly matched to
+settings where retrievable units are document parts and where users may need to
+navigate among related structural elements~\cite{Piwowarski2006}. That concern
+is directly relevant to patents, where the useful unit is often not the whole
+document but a passage in a particular section with a citeable anchor and nearby
+context. Our work can therefore be understood as bringing a structured-query
+perspective together with a structured-retrieval perspective: the DSL denotes
+sets of passages over a patent hierarchy, not lists of opaque documents.
+
+What distinguishes our system from prior structured query languages is that the
+language is embedded in a workflow shaped by contextual inquiry. The
+\texttt{section:}, \texttt{paragraph:}, metadata, and Boolean constructs are
+not merely convenient filters over a preexisting database. They are design
+responses to observed examiner practices such as section-scoped reading,
+synonym expansion, filing-date checks, and iterative refinement. In this sense,
+the language is both a PL artifact and an HCI artifact: its semantics are tied
+to the document model, and its form is tied to the work that users already do.
+Relative to prior structured-query work, the novelty here is therefore not just
+that the language targets a new corpus, but that it is bound to a
+provenance-preserving workflow derived from field observations.
 
 \subsection{Contextual Inquiry for Studying Specialized Workflows}
 
-% TODO
+Methodologically, this project follows the contextual inquiry tradition of
+Beyer and Holtzblatt, particularly the Master-Apprentice model in which the
+researcher learns by observing real work as it unfolds~\cite{Beyer1997}. This
+approach is especially valuable in specialized domains because practitioners
+often rely on tacit routines and workarounds that are hard to surface through
+retrospective interviews alone. Ko et al. used observation rather than purely
+self-reported accounts to study how developers gather and relate information
+during maintenance work~\cite{Ko2006}. Lubin and Chasins likewise used direct
+observation to reveal patterns in functional programmers' practice that would be
+easy to miss in a survey-only design~\cite{Lubin2021}. Zhang et al.
+demonstrate a related need-finding orientation in their study of API design,
+showing how unmet information needs can guide the design of technical tools and
+interfaces~\cite{Zhang2020}.
+
+Our use of contextual inquiry differs from these prior studies in one important
+way: the observational findings are not the end product of the paper. They are
+used to shape a working prototype. The methodological contribution of the paper
+is therefore not only that CI can reveal unmet needs in patent examination, but
+that those needs can be carried forward into the design of a domain-specific
+representation, language, and environment. Reflexive thematic analysis provides
+the mechanism by which those observations are consolidated into design-relevant
+themes rather than treated as isolated anecdotes~\cite{Braun2006}. This strand
+therefore justifies the paper's design method, while the earlier strands help
+show why the resulting tool must integrate retrieval, inspection, and evidence
+reuse rather than treating them as separate stages.
 
 
 %% ====================================================================
@@ -421,7 +677,12 @@ align with the iterative, refinement-based search strategy that examiners
 actually use.}
 Participants with experience using AI or semantic search tools---including the
 USPTO's similarity search, IP.com, and other platforms---consistently
-described them as inadequate. P02 emphasized that effective search ``really
+described them as inadequate. This was also visible in observed behavior: in
+one session, a participant invoked similarity search, briefly inspected the
+large returned set, and then abandoned that path in favor of manual Boolean
+refinement once it was clear that the suggested references were not preserving
+the technical distinctions needed for the task. P02 emphasized that effective
+search ``really
 involves appraising the art as you search for it, and refining your search
 based on that,'' which current tools do not support. P06 described the
 similarity search as ``hit or miss,'' identifying the core problem as the
@@ -454,7 +715,7 @@ language, not simply against a mental model of the codebase. The failure mode
 is therefore not just lost context but legally indefensible analysis. Second,
 Lupu et al.~\cite{Lupu2013} identified relevance assessment as an open problem
 in patent retrieval, but framed it primarily as a ranking and interface
-problem; our findings show that the deeper issue is the absence of integrated
+problem; our observations suggest that a deeper issue is the absence of integrated
 support for the interpretive work that follows retrieval---claim mapping,
 synonym management, and filing-date verification---which existing tools do not
 address at all. Third, Storey et al.~\cite{Storey1999} observed that developers
@@ -465,14 +726,14 @@ legal structure, limiting how flexibly they can reorganize their analysis.
 Finally, while Pirolli and Card's sensemaking model~\cite{Pirolli2005}
 describes foraging and sensemaking as iteratively coupled, our participants
 described AI-assisted search tools that treat these as separate, one-shot
-operations (Need~5), suggesting that current tool design actively works
+operations (Need~5), suggesting that current tool design may work
 against the iterative workflow that prior theory predicts experts will use.
 
 These differences suggest that future research should more explicitly account
 for domains where information work is not only interpretive but also
 constrained. Our findings also suggest that future tool design could
 prioritize integration over automation. Rather than replacing examiner
-judgment with AI-driven search, the most impactful opportunities may lie in
+judgment with AI-driven search, promising opportunities may lie in
 reducing manual overhead for tasks examiners already perform, such as synonym
 management, date filtering, and claim-to-evidence mapping.
 
@@ -485,47 +746,56 @@ management, date filtering, and claim-to-evidence mapping.
 \subsection{Overview}
 
 \smallskip\noindent\textbf{What the tool is.}
-Our system is a programmatic patent document analysis environment in which
-patent documents are treated as structured, queryable data rather than opaque
-full-text blobs. An examiner begins by loading one or more patent documents
-in PDF or plain-text form. The system parses each source into a
+Our system is a programmatic patent analysis environment that combines corpus
+scoping, structured passage-level querying, and evidence capture for
+claim-chart drafting. Patent documents are treated as structured, queryable
+data rather than opaque full-text blobs. An examiner begins from a parsed
+corpus of patent documents and scopes a working set before issuing
+passage-level queries. The system represents each source as a
 \texttt{Document~$\to$~Section~$\to$~Passage} hierarchy, extracts patent
 metadata, and stores the result in a structured document representation that
 preserves section type, numbered paragraphs, claim anchors, and neighboring
-context. The examiner then selects the subset of documents they want to search
-over and writes a query in a lightweight textual DSL. The system executes the
-query at the passage level and returns matched passages with provenance:
+context. The examiner then narrows the working corpus through explicit document
+selection, metadata facets, or metadata predicates in the DSL, and writes a
+query in a lightweight textual DSL. The system executes the query at the
+passage level and returns matched passages with provenance:
 document title and identifier, section type and heading, passage index,
 optional paragraph or claim anchor, contextual neighbors, and a human-readable
 reason string explaining why the result matched.
 
-The interface has two connected surfaces. The main search page combines a
-document manager, a DSL editor, and a scrollable list of result cards. Each
-result card supports lightweight downstream actions: the examiner can copy a
-citation trace directly from the card or send the passage into a separate
-claim-chart workspace. The second surface is a grouped claim-chart page in
-which evidence rows are organized under claim elements, edited, and exported
-as TSV or DOCX. This second surface is still prototype-grade, but it is
-included intentionally because our study showed that the handoff from search
-to claim mapping is itself one of the largest gaps in current examiner
-tooling. Figure~\ref{fig:search-ui} shows the current search interface, and
-Figure~\ref{fig:claim-chart-ui} shows the separate claim-chart workspace.
+The environment has two connected surfaces. The main search page combines a
+document manager for corpus scoping, a DSL editor for passage-level queries,
+and a scrollable list of result cards. Each result card supports lightweight
+downstream actions: the examiner can copy a citation trace directly from the
+card or send the passage into a separate claim-chart workspace. The second
+surface is a grouped claim-chart page in which evidence rows are organized
+under claim elements, edited, and exported as TSV or DOCX. This second surface
+is still prototype-grade, but it is included intentionally because our study
+showed that the handoff from search to claim mapping is itself one of the
+largest gaps in current examiner tooling. Figure~\ref{fig:search-workspace}
+shows the search workspace, where corpus scoping, query authoring, and
+passage-level inspection remain visible together.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]{figures/search-ui.png}
-  \caption{Main search interface. The left side exposes document selection and a DSL query editor; the right side shows passage-level results with section labels, contextual evidence, and lightweight actions for copying citations or sending passages into the chart workspace.}
-  \Description{The main search interface of the prototype. A left panel lists selectable patent documents and a query editor, while a right panel shows one matching passage result with section metadata, highlighted text, and buttons for copying a citation or adding the result to the claim chart.}
-  \label{fig:search-ui}
+  \includegraphics[width=\textwidth]{figures/search-workspace.png}
+  \caption{Search workspace for the prototype. The interface keeps corpus scoping, metadata facets, DSL query authoring, and passage-level results visible in one surface so an examiner can iteratively refine the search space, inspect local context around each hit, and preserve citation-ready evidence without reopening full patent documents in a separate viewer.}
+  \Description{A wide screenshot of the search workspace. The left side shows a document manager and metadata filters for scoping the active corpus. The center shows a DSL query editor with a structured patent query. The right side shows passage-level result cards with section labels, surrounding context, and actions for copying citations or saving evidence.}
+  \label{fig:search-workspace}
 \end{figure*}
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=0.84\textwidth,height=0.8\textheight,keepaspectratio]{figures/claim-chart-ui.png}
-  \caption{Claim-chart workspace. Evidence imported from search is grouped under a claim and element label, remains editable, and can be exported in lightweight structured formats such as TSV and DOCX.}
-  \Description{The claim-chart workspace of the prototype. The page shows saved evidence imported from search, editable fields for claim number and element label, claim element text, and a grouped evidence card with an analysis field and export actions.}
-  \label{fig:claim-chart-ui}
-\end{figure*}
+\smallskip\noindent\textbf{The abstraction exposed to the user.}
+The environment's central abstraction is not ``a better search box.'' It is a
+program state composed of three linked parts: a scoped corpus, a query program,
+and a set of evidence artifacts. The scoped corpus is the selected patent set
+plus its metadata constraints. The query program is the DSL expression that
+denotes a set of matching passages over the
+\DocSectionPassage{} hierarchy. The evidence artifact is
+not just copied text; it preserves the selected passage, its citation anchor,
+the source document set, and the query text that produced it. This gives users
+something closer to a reusable, inspectable representation
+of search intent and search outcome that can move forward into claim-chart
+drafting and backward into result reproduction.
 
 The search interface supports both explicit submission and live refinement.
 On a fresh page load, the system does not immediately run a broad query across
@@ -538,439 +808,293 @@ currently selected documents so the first query on that selected set need not
 hydrate each document one by one.
 
 \smallskip\noindent\textbf{Why this tool, for this population.}
-Every design decision in this section is traceable to a specific observation
-from our contextual inquiry sessions. The document model reflects the legal
-structure of patents as participants described it. The DSL operators map
-directly to the reasoning strategies participants actually used. The
-claim-chart handoff reflects the fact that retrieval and synthesis were never
-truly separate stages in our observations. The live refresh matches the
-iterative appraise-and-refine cycle that P02 articulated as the correct
-mental model for patent search. We describe these connections in detail below.
+Every major feature in the environment can be justified as a response to a
+constraint we derived from contextual inquiry. We therefore organize the design
+not as a list of interface features, but as a mapping from observed workflow
+breakdowns to design requirements and then to implemented tool responses.
 
 
-\subsection{Walkthrough: P03's Claim-Mapping Task}
+\subsection{Walkthrough: Using the Tool for a Real Claim-Mapping Task}
 
-To make the design concrete, we walk through how our tool supports a task we
-observed during session P03. P03 was working a software patent application
-whose independent claim recited a system for \emph{dynamic routing table
-updates}. After identifying several candidate references through
-classification-based search, P03 had to determine whether any of them
-disclosed the claimed routing mechanism, and if so, where the strongest
-supporting passages appeared. The process we observed involved repeated
-document opening, repeated \texttt{Ctrl+F} searches, and repeated manual note
-taking. P03 searched for one candidate term at a time, scanned every match
-regardless of section, recorded paragraph numbers manually when something
-looked useful, and then repeated the same cycle for each synonym that seemed
-plausible (e.g., \emph{routing table}, \emph{forwarding table},
-\emph{FIB}, \emph{routing cache}). P03 also had to manually inspect filing
-dates to determine which references were legally admissible.
+To make the design concrete, we walk through a task modeled on one we observed
+in session P03. P03 was evaluating a software patent application whose claim
+required a mechanism for \emph{dynamic routing table updates}. The task was not
+simply to find documents that mentioned routing tables. P03 needed to identify
+which candidate references were legally admissible, determine whether the
+relevant teaching appeared in the specification rather than only in the claims
+or abstract, inspect the surrounding context of each hit, and then preserve the
+best evidence for claim mapping. In the observed workflow, these steps were
+spread across repeated document opening, repeated \texttt{Ctrl+F} searches,
+manual filing-date checks, and handwritten or Word-based notes.
 
-With our tool, the same task proceeds as a single connected workflow.
+With our tool, the examiner begins by loading the candidate references into the
+search workspace and making the active corpus explicit. They can narrow the
+working set before close reading by combining metadata and classification
+constraints directly in the same query state that will later drive passage
+retrieval:
 
-\smallskip\noindent\emph{Step 1: Load and scope the corpus.}
-The examiner loads the seven candidate PDFs. The document manager lists them
-with their parsed titles and identifiers, while the backend indexes
-lightweight metadata immediately and defers full passage hydration until the
-documents are actually needed. To immediately filter to a legally admissible
-subset, the examiner can write:
-
-\begin{lstlisting}[caption={Filter by filing date and CPC before opening any document.}]
+\Needspace{7\baselineskip}
+\begin{lstlisting}[caption={Scoping a legally admissible technical slice before close reading.}]
 meta.filingDate:<2018-03-15 AND cpc:"H04L 45/00"
 \end{lstlisting}
 
-\noindent This eliminates references that postdate the application's
-effective filing date without the examiner having to open each reference in a
-separate viewer. This directly addresses Need~2: P03 described having to
-manually inspect each candidate result to determine which had a usable date.
+This first step is the direct design response to Need~2. Instead of opening
+every candidate reference to inspect dates manually, the examiner can keep the
+admissibility constraint attached to the active corpus and revise it as new
+references are added or removed.
 
-\smallskip\noindent\emph{Step 2: Query across the corpus for the claim element.}
-The examiner then writes a query targeting the specific claim language.
-Rather than typing one term, inspecting results, and then starting over with
-a synonym, the examiner composes the full synonym set in a single query that
-executes across all selected documents simultaneously:
-
-\begin{lstlisting}[caption={Synonym expansion across a loaded corpus (Need 1).}]
-section:SPECIFICATION AND
-  (contains:"routing table" OR contains:"forwarding table"
-   OR contains:"FIB" OR contains:"routing cache")
-\end{lstlisting}
-
-\noindent The result set now contains only passages from the detailed
-specification---the section most likely to contain the technical teaching that
-maps to a claim element---that mention any of the four synonymous terms.
-Passages from the abstract, claims, and unrelated sections are excluded.
-Passages from all selected documents appear in one scrollable list. This
-addresses both Need~1 (synonym management) and Need~4 (section-scoped keyword
-localization) simultaneously.
-
-\smallskip\noindent\emph{Step 3: Assess results in context.}
-Each result card displays the matched passage text alongside the passage
-immediately before and after it. P03 observed that keyword hits alone were
-often not sufficient to determine relevance---``you have to go through the
-whole patent'' to understand whether a term was being used in the right
-sense. The neighboring passages eliminate most of that reading burden. Each
-card also exposes the paragraph or claim anchor, a \texttt{Copy citation}
-action, and an \texttt{Add to chart} action that sends the passage directly
-into the claim-chart workspace. This addresses the citation overhead P01
-described while also reducing the manual handoff burden associated with
-Need~3. Figure~\ref{fig:search-ui} shows this result-card workflow in the
-current prototype.
-
-\smallskip\noindent\emph{Step 4: Collect and organize evidence.}
-When the examiner identifies a promising passage, they add it to the
-claim-chart workspace. That page groups evidence rows by claim and element
-label, so multiple supporting passages for the same limitation can be managed
-together. The examiner can fill in the claim element text, add analysis, and
-export the grouped chart as TSV or DOCX. This is still a lightweight
-prototype rather than a full office-action authoring system, but it directly
-addresses the fact that participants currently bridge this stage with Word,
-paper, or personal templates. Figure~\ref{fig:claim-chart-ui} shows the
-current grouped workspace after evidence has been transferred from search.
-
-\smallskip\noindent\emph{Step 5: Iterative refinement.}
-If the initial results contain false positives (e.g., passages about static
-routing that happen to mention ``routing table''), the examiner narrows the
-query by adding a term without restarting:
-
-\begin{lstlisting}[caption={Narrowing by adding a required term.}]
-section:SPECIFICATION AND
-  (contains:"routing table" OR contains:"forwarding table")
-  AND contains:"dynamic"
-\end{lstlisting}
-
-\noindent Once the examiner has begun interacting, the result set updates
-within 600ms. The examiner can see immediately whether the added constraint
-reduced the result set to something manageable or eliminated too many relevant
-passages, and can adjust accordingly. This tight iteration loop was absent
-from every tool P03, P05, and P09 described. P02 articulated the correct
-model: effective search ``really involves appraising the art as you search for
-it, and refining your search based on that'' (Need~5). Our live refinement
-loop is the direct implementation of that observation.
-
-
-\subsection{The Document Abstraction}
-
-\smallskip\noindent\textbf{The hierarchy.}
-Each patent document is parsed into a three-level hierarchy:
-\texttt{Document~$\to$~Section~$\to$~Passage}. A \texttt{Document} carries
-all extracted metadata: title, document identifier, filing and publication
-dates, application number, inventors, assignee, CPC classification codes,
-and domestic priority chain. A \texttt{Section} has a canonical type drawn
-from the set \{\textsc{title}, \textsc{abstract}, \textsc{background},
-\textsc{summary}, \textsc{specification}, \textsc{claims}, \textsc{other}\}
-and a human-readable heading string extracted from the document. A
-\texttt{Passage} is an atomic unit of text within a section: a
-blank-line-separated paragraph, a USPTO-numbered paragraph (\texttt{[0042]~...}),
-or an individual claim.
-
-This hierarchy was not chosen arbitrarily. During coding we noted that
-participants never described their information needs in terms of the full
-document; they consistently described them at the level of \emph{sections}
-(``I want hits in the spec, not the abstract'') and \emph{passages} (``I
-need to know which paragraph to cite''). The three-level model is a direct
-structural translation of how patent examiners reason about documents.
-
-\smallskip\noindent\textbf{Why section types are first-class.}
-Patent sections are not stylistic divisions; they carry distinct legal
-functions that every participant in our study treated as categorical. The
-\textsc{abstract} is explicitly excluded as prior art under 35 U.S.C.
-\S 102(b)(2)(B) in certain conditions; the \textsc{background} describes the
-problem the invention addresses; the \textsc{specification} (detailed
-description) is the primary locus of technical teaching and is what examiners
-cite when writing a rejection; the \textsc{claims} define the legally
-protected scope. P05 was explicit: they wanted hits ``in the background and
-description sections, not in the abstract or claims.'' No current tool
-surfaces results at this level of section specificity. Our model makes
-section type queryable as a first-class predicate.
-
-\smallskip\noindent\textbf{Passage-level anchors.}
-Each \texttt{Passage} optionally carries one of three anchor types. A
-\texttt{paragraphId} records the USPTO paragraph number (e.g.,\ \texttt{0042})
-for numbered paragraphs in post-2001 publications. A \texttt{claimNo}
-records the claim number for passages parsed from the claims section. A
-\texttt{figureRefs} list records any figure references that appear within
-the passage text. The \texttt{paragraphId} directly addresses the citation
-overhead P01 described: when writing an office action, examiners must record
-exactly where in a reference the evidence appears. For published applications,
-this means paragraph numbers; for granted patents, column and line numbers.
-P01 called this process manual and frustrating. By extracting and storing
-the anchor at parse time, our system can surface it on the result card
-without requiring the examiner to open the document.
-
-\smallskip\noindent\textbf{Metadata sidecars and selective hydration.}
-In the current prototype, the document abstraction also shapes the storage and
-loading strategy. We separate lightweight document metadata from the full
-passage payload on disk so that startup can index the document set without
-materializing every passage body in memory. The backend can therefore list and
-filter loaded documents using metadata alone, while full document hydration is
-deferred until a document is actually queried or explicitly preloaded. This is
-not just an implementation detail: it reflects the same design principle as
-the frontend interaction model. Broad corpus knowledge should be cheap to keep
-available; expensive document structure should be loaded only when it supports
-an actual examiner action.
-
-
-\subsection{The Query DSL}
-
-The query language is a minimal composable DSL. The full grammar supports
-phrase containment, section type, paragraph anchor, CPC code, arbitrary
-metadata fields, and Boolean composition (\texttt{AND}, \texttt{OR},
-\texttt{NOT}) with parenthesized sub-expressions and standard Boolean
-precedence. Every predicate in the language was motivated by a specific
-observed need; we describe each with its motivation below.
-
-\smallskip\noindent\textbf{Content filtering (\texttt{contains:}).}
-The simplest query is a phrase containment check over all passages in all
+Once the corpus is scoped, the examiner searches for the claim element itself.
+Rather than running a separate search for each synonymous phrase, the examiner
+can express the synonym set and section restriction in one query over the
 selected documents:
 
-\begin{lstlisting}[caption={Basic phrase search.}]
-contains:"prior art"
+\Needspace{9\baselineskip}
+\begin{lstlisting}[caption={Passage-level query for a claim element across a scoped corpus.}]
+section:SPECIFICATION AND
+  (contains:"routing table"
+   OR contains:"forwarding table"
+   OR contains:"FIB"
+   OR contains:"routing cache")
 \end{lstlisting}
 
-\noindent This is the direct analog of a keyword search in any existing tool,
-but with a critical difference: the result is a list of individual passages,
-not a ranked list of documents. The examiner sees where in the document the
-term appears without having to open anything.
+The result is not a ranked list of documents but a list of matching passages.
+Each card exposes the section type and heading, the paragraph or claim anchor
+if present, and the immediately neighboring passages. This is how the tool
+addresses Need~4 in use: the examiner can judge whether a hit occurs in the
+right part of the patent and whether the surrounding discussion actually
+supports the claimed mechanism, without reconstructing that context manually in
+another viewer. If a passage looks promising, the examiner can copy a citation
+trace or add the result directly to the claim-chart workspace.
 
-\smallskip\noindent\textbf{Section filtering (\texttt{section:}).}
-Adding a \texttt{section:} predicate restricts results to passages from a
-specific document section. This was the single most consistently requested
-capability across our study:
+The task then continues into synthesis rather than stopping at retrieval. When
+the examiner adds a result to the chart, the system preserves the passage, its
+anchor, the source document IDs, and the query text that produced it. The chart
+workspace groups evidence under claim elements and keeps the rows editable, so
+the examiner can continue building a claim chart without losing the provenance
+of how each piece of evidence was found. This is the design response to Need~3:
+the handoff from search to claim mapping is treated as part of the same
+workflow rather than as a manual export into Word or paper notes.
+Figure~\ref{fig:claim-chart-workspace} shows this downstream workspace, where
+saved evidence remains grouped, editable, and linked back to the originating
+search state.
 
-\begin{lstlisting}[caption={Section-scoped containment query (Need 4).}]
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/claim-chart-workspace.png}
+  \caption{Claim-chart workspace for the prototype. Evidence selected during search remains available as the examiner drafts grouped claim-chart rows, edits element text, and exports the resulting chart, making the handoff from retrieval to downstream synthesis part of the same interactive workflow.}
+  \Description{A wide screenshot of the claim-chart workspace. A saved-evidence panel on the left lists passages carried forward from search. The main panel on the right shows editable claim-chart fields, grouped claim elements, and evidence rows that can be exported as a chart.}
+  \label{fig:claim-chart-workspace}
+\end{figure*}
+
+Finally, if the result set contains false positives, the examiner can refine
+the query incrementally instead of restarting the search process. For example,
+if the synonym-expanded result set still mixes dynamic rerouting with static
+configuration text, the examiner can add a negative constraint directly to the
+same query program:
+
+\Needspace{9\baselineskip}
+\begin{lstlisting}[caption={Refining a noisy result set with explicit exclusion.}]
+section:SPECIFICATION AND
+  (contains:"routing table"
+   OR contains:"forwarding table"
+   OR contains:"FIB") AND
+  NOT contains:"static route"
+\end{lstlisting}
+
+The debounced live-refresh loop shows the effect of that change immediately,
+so the examiner can appraise whether the new constraint removed false positives
+without restarting the workflow. The same language also composes structural
+anchors with content constraints when the task shifts from broad retrieval to
+pinpoint support for a particular claim element:
+
+\Needspace{8\baselineskip}
+\begin{lstlisting}[caption={Combining claim anchors with content constraints.}]
+claim:8 AND
+  (contains:"routing cache"
+   OR contains:"forwarding table")
+\end{lstlisting}
+
+This behavior is the concrete realization of Need~5: search remains an
+iterative appraise-and-refine process, but one in which the search state,
+evidence, and downstream charting artifacts stay linked throughout.
+
+This walkthrough also illustrates how the four design decisions fit together in
+practice. The examiner first scopes a working corpus, then queries over patent
+structure, then refines the search through a composable DSL, and finally carries
+evidence forward with provenance intact. That sequence is what the tool is
+designed to support.
+
+
+\subsection{Decision 1: Make the active corpus explicit before close reading}
+
+\emph{Observation from need-finding.} Participants did not begin by deeply
+reading every candidate reference. They first narrowed a working set by
+classification, assignee, inventor, date, or prior familiarity, then returned
+to that subset while refining the search. P03 described manually checking
+filing dates across candidate references, and several participants described
+keeping track of ``the references I am actively working with'' in ad hoc ways.
+
+\emph{Design requirement.} Corpus state had to become a first-class part of
+the interaction rather than background setup. The user needed an explicit,
+revisable working set before paying the cost of passage-level inspection.
+
+\emph{Implemented response.} The search workspace exposes an explicit selected
+patent set, metadata facets, and DSL predicates such as \texttt{cpc:} and
+\texttt{meta.filingDate:}. The backend indexes lightweight metadata eagerly
+while deferring full passage hydration until a document is selected or queried.
+This couples the interface decision to a systems decision: corpus scoping stays
+cheap, while expensive document loading is delayed until it supports an actual
+examiner action.
+
+The same idea appears in the query language. An examiner can constrain the
+working set to a legally admissible slice before reading passages:
+
+\Needspace{7\baselineskip}
+\begin{lstlisting}[caption={Constrain a scoped corpus by filing date and CPC.}]
+meta.filingDate:<2018-03-15 AND cpc:"H04L 45/00"
+\end{lstlisting}
+
+This is the design response to Need~2. Instead of opening candidate references
+one by one to inspect dates, the examiner can keep admissibility constraints in
+the same state as the selected corpus and revise them as the search evolves.
+
+
+\subsection{Decision 2: Preserve patent structure in the retrieval model}
+
+\emph{Observation from need-finding.} Participants described their information
+needs in terms of sections and citeable locations, not whole documents. P05
+wanted hits in the background and detailed description rather than the abstract
+or claims, while P01 emphasized the effort required to recover the exact
+paragraph-level location needed for citation.
+
+\emph{Design requirement.} The retrieval unit had to be smaller than the full
+document and had to preserve enough structure for relevance judgment, citation,
+and reuse. This meant modeling patents in the same units examiners actually use
+when talking about evidence.
+
+\emph{Implemented response.} We represent each patent as a
+\DocSectionPassage{} hierarchy. A \texttt{Document}
+stores metadata such as filing date, assignee, inventors, and CPC codes. A
+\texttt{Section} carries a canonical type drawn from a closed vocabulary such
+as \textsc{background}, \textsc{specification}, or \textsc{claims}. A
+\texttt{Passage} is the smallest retrieval unit and can carry anchors such as
+\texttt{paragraphId}, \texttt{claimNo}, and figure references. The result card
+then surfaces section type, heading, anchors, and neighboring passages so the
+examiner can judge relevance without reconstructing that structure manually.
+
+This design choice also explains why section type is a dedicated predicate
+rather than an arbitrary metadata field. Participants referred to legal section
+roles, not heading substrings. P05 asked for hits ``in the background and
+description sections, not in the abstract or claims,'' so the model normalizes
+those section roles at parse time and exposes them directly in the query
+language:
+
+\Needspace{7\baselineskip}
+\begin{lstlisting}[caption={Section-scoped containment query.}]
 section:SPECIFICATION AND contains:"virtual machine migration"
 \end{lstlisting}
 
-\noindent The predicate accepts any canonical section type and is
-case-insensitive. P05 wanted hits ``in the background and description
-sections, not in the abstract or claims,'' and described the absence of this
-feature as something that ``makes no sense for what I actually need to find.''
-This predicate is the direct implementation of that need.
+Similarly, paragraph anchors are preserved because citation work depends on
+them. By extracting \texttt{paragraphId} at parse time and surfacing it on the
+result card, the tool keeps citation-relevant structure available during search
+instead of requiring the examiner to reopen the source document.
 
-\smallskip\noindent\textbf{Synonym expansion (\texttt{OR}).}
-Need~1 established that examiners must manually enumerate synonyms and
-run separate queries for each variant. The \texttt{OR} operator allows the
-full synonym set to be expressed in a single query:
 
-\begin{lstlisting}[caption={OR for synonym expansion across a corpus (Need 1).}]
-section:CLAIMS AND
-  (contains:"virtual machine" OR contains:"hypervisor"
-   OR contains:"guest operating system")
+\subsection{Decision 3: Support transparent iterative refinement with a composable DSL}
+
+\emph{Observation from need-finding.} Participants did not formulate one
+perfect query and wait for a ranked list. They iteratively probed the corpus,
+expanded synonym sets, added or removed constraints, and revised their search
+as they learned more about the art. P02 explicitly described search as
+``appraising the art as you search for it, and refining your search based on
+that.'' Participants were also frustrated by ranked systems whose behavior did
+not reveal how to revise a failing search.
+
+\emph{Design requirement.} The query representation had to be editable,
+composable, and interpretable enough that a user could understand why a result
+appeared and what to change next. This is where the PL contribution becomes
+central: the tool needs a small language whose semantics are tied to patent
+structure rather than a black-box retrieval score.
+
+\emph{Implemented response.} The environment uses a textual Boolean DSL with
+phrase containment, section predicates, paragraph anchors, CPC filters,
+metadata filters, and Boolean composition via \texttt{AND}, \texttt{OR}, and
+\texttt{NOT}. A query denotes a set of passages within a scoped corpus, not a
+ranked list of whole documents. Internally, the query is parsed into an
+expression tree evaluated over the patent hierarchy, and each result card
+reports the predicates that matched.
+
+This decision is visible in the simplest search patterns. Need~1 established
+that examiners manually enumerate synonyms and rerun separate searches for each
+variant, so synonym management becomes ordinary Boolean composition:
+
+\Needspace{9\baselineskip}
+\begin{lstlisting}[caption={Synonym expansion across a loaded corpus.}]
+section:SPECIFICATION AND
+  (contains:"routing table"
+   OR contains:"forwarding table"
+   OR contains:"FIB"
+   OR contains:"routing cache")
 \end{lstlisting}
 
-\noindent This returns all claim passages from all selected documents that
-mention any of the three terms. P04 described maintaining a shared synonym
-crosswalk; this query structure makes that crosswalk executable rather than
-just a reference document, and applies it across a corpus in one step.
+Need~4 established that examiners want section-scoped retrieval and pinpoint
+anchors, so the same language also supports predicates such as
+\texttt{section:SPECIFICATION}, \texttt{paragraph:42}, and date constraints via
+\texttt{meta.filingDate}. Because results expose a match-reason string, each
+edit to the query remains inspectable. After the first explicit search, the
+workspace enables a debounced live-refresh loop so users can make small local
+edits and immediately see whether they narrowed the corpus usefully or removed
+too much.
 
-\smallskip\noindent\textbf{Negation (\texttt{NOT}).}
-The \texttt{NOT} operator excludes passages from the result set. A practical
-use case is filtering the introductory boilerplate paragraph that many
-specifications begin with, which often contains broad terminology that
-matches almost any query:
+For example, the same query can be narrowed without abandoning the current
+search state:
 
-\begin{lstlisting}[caption={NOT to exclude boilerplate preamble.}]
-section:SPECIFICATION AND contains:"network interface"
-  AND NOT paragraph:1
+\Needspace{8\baselineskip}
+\begin{lstlisting}[caption={Composing metadata, section, and exclusion filters.}]
+meta.filingDate:<2018-03-15 AND
+  section:SPECIFICATION AND
+  contains:"routing table" AND
+  NOT contains:"static route"
 \end{lstlisting}
 
-\smallskip\noindent\textbf{Paragraph anchoring (\texttt{paragraph:}).}
-The \texttt{paragraph:} predicate retrieves a specific numbered passage by
-its USPTO paragraph anchor. This is useful when an examiner returns to a
-document in a subsequent session and needs to pull up a known-relevant
-paragraph without re-reading the specification:
-
-\begin{lstlisting}[caption={Pinpoint retrieval by paragraph anchor (Need 4).}]
-section:SPECIFICATION AND paragraph:42
-\end{lstlisting}
-
-\noindent This also enables cross-document comparison: an examiner who has
-noted paragraph \texttt{[0042]} as relevant in one reference can query the
-same anchor across other loaded documents to see whether they share
-structurally similar placement for the same concept.
-
-\smallskip\noindent\textbf{Metadata filtering (\texttt{meta.} and \texttt{cpc:}).}
-CPC classification codes and arbitrary metadata fields narrow the document
-scope before content is examined. This reflects the corpus-scoping workflow
-that multiple participants described: they first constrain the set of
-candidate documents by classification, then search their content.
-
-\begin{lstlisting}[caption={CPC scope then section filter.}]
-cpc:"H04L 45/00" AND section:SPECIFICATION
-  AND contains:"link-state advertisement"
-\end{lstlisting}
-
-\begin{lstlisting}[caption={Date constraint to enforce admissibility (Need 2).}]
-meta.filingDate:<2019-06-01
-  AND section:CLAIMS AND contains:"neural interface"
-\end{lstlisting}
-
-\noindent The date predicate directly addresses Need~2. P05 described
-completing an entire office action on a reference that postdated the
-application's effective filing date, requiring a complete redo. P06 called
-the absence of reliable date filtering ``definitely a very good fix that can
-be done.''
-
-The current prototype also supports metadata conveniences that reduce the gap
-between raw metadata structure and the way examiners naturally formulate
-queries. In addition to nested metadata paths such as
-\texttt{meta.assignee.name}, the implementation supports direct aliases such
-as \texttt{meta.pubDate}, \texttt{meta.appNo}, \texttt{meta.assigneeName},
-and \texttt{meta.inventorName}. It also supports substring and prefix
-operators for metadata exploration as well as derived helper fields such as
-\texttt{meta.priorityDate}, \texttt{meta.effectiveDate}, and
-\texttt{meta.admissibilityDate}. These helpers do not solve the legal
-admissibility problem completely, but they move date reasoning closer to the
-query layer than any tool participants described using.
-
-\smallskip\noindent\textbf{Full composability.}
-All predicates compose with arbitrary nesting. The following query reflects
-the kind of compound search P03 assembled across multiple tool sessions
-during our study---expressed here in a single executable string that can be
-saved, shared, and rerun:
-
-\begin{lstlisting}[caption={Compound query for a single claim element.}]
-meta.filingDate:<2018-03-15 AND section:SPECIFICATION AND
-  (contains:"routing table" OR contains:"forwarding table"
-   OR contains:"FIB")
-  AND contains:"dynamic"
-\end{lstlisting}
-
-\noindent Each result card shows the matched passage text, the section type
-and heading, the paragraph or claim anchor if present, the immediately
-preceding and following passages for context, and a match-reason string that
-names each predicate that matched (e.g., \texttt{section:SPECIFICATION},
-\texttt{contains:"routing table"}). The examiner can use this string directly
-as a citation trace in a claim chart, addressing the absence of integrated
-claim-mapping support identified in Need~3.
+We also chose a textual DSL over a GUI-only filter panel because examiners
+already work in Boolean query strings and need persistent artifacts they can
+reuse later. A query string is not just an interaction state; it is a compact
+representation of search rationale that can be saved, shared, and cited again
+when the analysis moves downstream.
 
 
-\subsection{Key Design Decisions}
+\subsection{Decision 4: Keep retrieval and claim mapping in one provenance-preserving workflow}
 
-\smallskip\noindent\textbf{Decision 1: Passage granularity with neighboring context.}
-The most fundamental question in designing a retrieval tool is the unit of
-retrieval. Existing tools return documents; sentence-level tools exist in
-academic NLP but are unfamiliar to practitioners. We chose the passage
-because it corresponds to how patent documents are legally structured and
-how examiners described their information needs: they wanted ``where in the
-patent'' a term appeared, not just ``which patent.''
+\emph{Observation from need-finding.} Retrieval did not end when a participant
+found a promising passage. Participants copied text into Word, personal claim
+charts, or paper notes, manually preserved citation details, and often had to
+remember which query or document state had produced a passage.
 
-However, our analysis sessions surfaced a secondary problem: a passage
-clipped from its context can be misleading or uninterpretable. P03 was
-explicit that ``you have to go through the whole patent'' in part because the
-keyword match by itself does not reveal whether the surrounding text confirms
-or contradicts the relevance judgment. We resolved this by including the
-immediately preceding and following passages in every result card. This adds
-enough local context for a relevance judgment without requiring the examiner
-to load the full document. The tradeoff---longer result cards, more
-scrolling---was acceptable because it directly replaces the longer task of
-opening each document to read around each hit.
+\emph{Design requirement.} The tool had to preserve provenance across the
+handoff from retrieval to synthesis and had to treat evidence capture as part
+of the same workflow rather than an external afterthought.
 
-\smallskip\noindent\textbf{Decision 1b: Search and synthesis remain connected.}
-An early version of the prototype stopped at passage retrieval. That would
-have been enough to demonstrate the DSL and the passage-level model, but it
-would have ignored one of the strongest findings from our study: the handoff
-from retrieval to claim mapping is itself a major source of friction. We
-therefore chose to expose lightweight downstream actions directly on result
-cards and to build a separate claim-chart workspace rather than treating
-search as the end of the interaction. This does not mean the current
-claim-chart feature set is complete. It means that our design explicitly
-recognizes claim mapping as part of the same workflow rather than a separate
-phase left entirely to external tools.
+\emph{Implemented response.} Each result card includes \texttt{Copy citation}
+and \texttt{Add to chart} actions. When a passage is transferred, the system
+keeps the selected passage, its anchor, the source document set, and the query
+that produced it. The claim-chart workspace then groups evidence under claim
+elements, keeps rows editable, and supports export as TSV or DOCX.
 
-\smallskip\noindent\textbf{Decision 2: Section type as a predicate with a
-closed vocabulary, not a metadata field.}
-An early design used a generic \texttt{meta.} namespace for all document
-properties, which would have encoded section type as
-\texttt{meta.sectionType:"SPECIFICATION"}. We changed this to a dedicated
-\texttt{section:} predicate with a closed vocabulary after analyzing how
-participants talked about sections during the CI sessions.
+This decision is what turns the tool from a retrieval prototype into a workflow
+prototype. In the P03-style task we observed, the examiner did not simply need
+to find passages mentioning a routing-table concept. They needed to judge those
+passages in context, preserve paragraph-level evidence, and organize the
+results under a claim element without losing where the evidence came from. The
+search workspace therefore presents neighboring context and anchors on the
+result card, while the chart workspace preserves those results as evidence
+artifacts rather than detached text snippets.
 
-Participants never referred to sections by arbitrary heading text; they
-referred to them by legal role. P05 said ``the background and description
-sections,'' not ``the section whose heading contains 'Detailed Description.'''
-This suggested that the model needed a closed, normalized vocabulary of legal
-section types rather than a string-match against headings---particularly
-because heading text varies across issuers and publication formats (e.g.,
-``Detailed Description of the Preferred Embodiments'' vs. ``Detailed
-Description''). Normalizing to canonical types at parse time and exposing
-them through a dedicated predicate syntax reflects the conceptual model
-participants actually held.
-
-\smallskip\noindent\textbf{Decision 3: Boolean composition over ranked retrieval.}
-We made an early decision to build a Boolean filter model rather than a
-ranked retrieval model (e.g., TF-IDF, BM25, or embedding similarity). This
-was one of the most consequential choices in the design and was almost
-entirely driven by Need~5.
-
-P02 described effective search as ``appraising the art as you search for it,
-and refining your search based on that.'' This articulates a specific
-epistemic structure: the examiner's understanding of what they are looking for
-evolves as they look. Ranked retrieval systems assume the query is fixed and
-the model's job is to order the corpus against it; they do not expose
-\emph{why} a document ranked where it did, making it opaque which dimension
-to refine when results are wrong. P09 described the USPTO similarity search
-as producing 300 references ``of which 2 or 3 are actually useful,'' with no
-clear signal about what to adjust. P06 identified the core problem: the
-model has no awareness of domain context, so a search for ``user interface''
-in a medical device application returns banking software results.
-
-A Boolean DSL is transparent by design. Every predicate either matches or
-does not, and the match-reason string on each result card names exactly which
-predicates fired. When a result is missing, the examiner can add an
-\texttt{OR} clause; when there are too many false positives, they can add an
-\texttt{AND} constraint. Each edit is a one-token change with an immediately
-visible effect. This transparency is precisely what makes it compatible with
-the iterative appraise-and-refine strategy that participants described as
-their actual method.
-
-\smallskip\noindent\textbf{Decision 4: Textual DSL over a GUI filter panel.}
-We considered implementing the same predicate semantics as a graphical filter
-panel with dropdowns, checkboxes, and date pickers. The textual DSL won out
-for reasons that came directly from the CI sessions.
-
-First, patent examiners already write Boolean query strings as a core job
-skill. P04, P07, and P10 each described constructing Boolean queries as
-standard practice. A textual DSL is a familiar interaction mode for this
-population; a filter panel would introduce a new interaction paradigm for
-examiners who already think in terms of query strings.
-
-Second, and more importantly, a textual query is a first-class persistent
-artifact in a way that a GUI selection state is not. P01 maintained a Word
-table for claim mapping; P03 used inline bullet points; P05 copied claims
-into a Word document. All of these are workarounds for the absence of
-integrated documentation support (Need~3). A query string can be pasted
-directly into a claim chart as a citation trace: ``found via
-\texttt{section:SPECIFICATION AND contains:"routing table"}, paragraph
-[0042].'' A GUI filter panel cannot be recorded that way. The DSL makes
-queries \emph{shareable}---with colleagues, across cases, and over time---in
-a way that a stateful UI control does not.
-
-Third, the live debounce refresh means that typing in the text box already
-behaves like a responsive filter panel: each character edit produces updated
-results within 600ms. The perceived interactivity difference between a
-textual DSL and a GUI panel is therefore small, while the artifact value of
-the textual form is substantially higher.
-
-\smallskip\noindent\textbf{Decision 5: Preprocess broad, hydrate narrow.}
-As the prototype expanded from a small demo to a multi-document tool, a new
-design question emerged: how much of the corpus should be processed eagerly
-and how much should remain deferred until the user acts? A naive design would
-hydrate every parsed document into memory on startup. That keeps the first
-query fast, but it also wastes work on documents the examiner may never query.
-At the other extreme, a purely on-demand design makes every first query pay a
-document-loading cost even when the tool already has strong signals about what
-the examiner is likely to search next.
-
-We resolved this tension by separating preprocessing into two layers. The
-system eagerly indexes lightweight metadata for all parsed documents so the UI
-can present and filter a corpus cheaply. It then lazily hydrates full
-documents on first access, while also opportunistically preloading the
-currently selected document set after explicit user interaction. This design
-fits the workflow we observed: examiners often know the subset of candidate
-references they are actively working with, but they do not want the system to
-waste effort on every possible document in the corpus. The resulting strategy
-is simple to describe: preprocess broad, hydrate narrow.
+Seen this way, the central design abstraction of the tool is a linked program
+state: a scoped corpus, a query program, and a set of evidence artifacts. That
+is the connection between the design argument and the implementation argument.
+The system is not just returning passages; it is preserving the state needed to
+move from search to claim-chart drafting without manual transcription.
 
 
 %% ====================================================================
@@ -978,76 +1102,249 @@ is simple to describe: preprocess broad, hydrate narrow.
 %% ====================================================================
 \section{Technical Challenges and Technical Solutions}
 
-% TODO: This section should be 2-3 pages. Focus on 2-3 hardest problems
-% that required inventing something new---not debugging challenges.
-% Frame each challenge formally, then describe the solution.
+The hardest implementation problems were not frontend polish or debugging
+incidents. They arose from turning a messy, document-centric workflow into a
+precise programmable system. In each case, the challenge was to define an
+abstraction that both matched examiner reasoning and admitted a concrete
+execution strategy. The three hardest challenges were therefore not ``how do we
+build the UI'' but: how to give heterogeneous patent sources a common semantic
+domain, how to give the query language a compositional meaning over that domain,
+and how to make query results persist as reusable evidence rather than
+ephemeral hits. Put differently, we needed to decide what the objects of the
+system were, what programs over those objects meant, and what a reusable result
+of program execution should contain. Those questions are what make the section
+feel like PL+HCI rather than ordinary application engineering.
 
-\subsection{Challenge 1: Parsing Heterogeneous Patent Formats into a Uniform Hierarchy}
+\subsection{Challenge 1: Defining a Source-Independent Semantic Domain}
 
-% TODO: State the problem formally.
-%
-% Patent documents arrive in two formats: plain-text files (.txt) with
-% explicit section headings and bracket-numbered paragraphs, and
-% text-extracted PDFs whose formatting is far less predictable. The parser
-% must map both into the same Document -> Section -> Passage abstraction
-% without per-document manual intervention.
-%
-% Key sub-problems:
-%   - Section heading normalization: "BRIEF DESCRIPTION" vs. "BRIEF SUMMARY"
-%     vs. "BACKGROUND OF THE INVENTION" must all map to a canonical type.
-%   - Passage boundary detection: paragraph [NNNN] anchors in .txt files
-%     vs. inferred paragraph breaks in PDFs.
-%   - Anchor extraction: paragraphId, claimNo, figureRefs are structurally
-%     present in .txt but must be heuristically inferred from PDF text streams.
-%
-% Describe the solution: the heading normalization table, the state-machine
-% parser for section transitions, and the anchor annotation pass.
-% Quantify: how many heading variants were encountered across the 5 PDFs
-% pulled in from data/raw/? What was the fallback strategy?
+The first challenge was representational. Patent sources arrive as plain-text
+files with explicit section markers and paragraph anchors, or as
+text-extractable PDFs whose formatting is noisier and whose logical structure is
+only partially visible in the text stream. A passage-level query language is
+only meaningful if both sources map into the same internal representation; if
+section boundaries, paragraph IDs, or claim passages are format-dependent, then
+the language has no stable semantics.
 
-\subsection{Challenge 2: Designing a Composable Filter Model for the DSL}
+Formally, the problem was to define a normalization procedure from raw patent
+sources into a single structured representation such that predicates like
+\texttt{section:SPECIFICATION} and \texttt{paragraph:42} would denote the same
+kind of object regardless of source format. Without that guarantee, the DSL
+would be only surface syntax over a collection of parser-specific heuristics.
 
-% TODO: State the problem formally.
-%
-% The DSL must support arbitrarily nested AND/OR combinations over
-% heterogeneous predicates (section type, text containment, CPC code,
-% metadata fields, paragraph anchor). The challenge is to define a
-% compositional semantics for the filter language such that:
-%   (a) every well-formed query has a well-defined denotation over the
-%       passage set of a document, and
-%   (b) the execution engine can evaluate queries efficiently without
-%       materializing the full cross-product of (document, passage) pairs.
-%
-% Describe the solution: the internal query IR (the Filter ADT / query tree),
-% how the DSL parser maps surface syntax to the IR, and how the execution
-% engine evaluates the tree depth-first over the passage stream.
-% Include a small diagram or pseudocode of the IR node types if helpful.
+A naive solution would have been to keep separate parsing paths for each source
+type and let downstream code interpret whatever structure each parser happened
+to emit. That would have been easier to prototype, but it would have made the
+meaning of structural queries dependent on document format. The deeper
+difficulty of this challenge was therefore not text extraction alone; it was
+committing to a representation invariant strong enough that the rest of the
+system could ignore source-specific details.
 
-\subsection{Challenge 3: Provenance and Context Reconstruction}
+Our solution was to normalize all sources into a common
+\DocSectionPassage{} hierarchy before query execution.
+The parser canonicalizes heading variants into a closed section vocabulary,
+splits text into passage units, and annotates each passage with structural
+anchors such as \texttt{paragraphId}, \texttt{claimNo}, and figure references
+when available. This hierarchy is the semantic domain of the DSL: the same
+\texttt{section:SPECIFICATION} query must mean the same thing whether the source
+was a USPTO-style text file or a PDF extracted through \texttt{pypdf}. By
+solving normalization at parse time, we keep the execution model simple and make
+structural predicates stable across heterogeneous inputs. This was the key
+invented representational move in the system: instead of searching over raw
+documents, we first re-encoded patents into the units examiners actually reason
+about.
 
-% TODO: State the problem formally.
-%
-% A matched passage is only useful to an examiner if they can quickly
-% understand (a) where in the document it appears, (b) what surrounds it,
-% and (c) why it matched. This requires that results carry provenance
-% metadata (section type, paragraphId/claimNo, document id, passage index)
-% and that neighboring passages can be reconstructed without re-parsing the
-% document.
-%
-% Describe the solution: how the parsed JSON document store preserves index
-% offsets and anchor annotations, and how the query engine attaches
-% neighboring passages to each match result.
+This choice also shaped the rest of the architecture. Because the normalized
+hierarchy is stored as structured JSON rather than reconstructed on every query,
+the query engine and evidence layer can operate over one semantic domain even
+when the original sources differ substantially. The cost is that parsing becomes
+a more semantically loaded stage of the pipeline, but the benefit is that later
+stages remain simpler and more predictable.
+
+\subsection{Challenge 2: Giving the DSL a Compositional Meaning}
+
+The second challenge was semantic. The DSL has to combine heterogeneous
+predicates---section type, containment, metadata comparisons, CPC filters,
+paragraph anchors, claim numbers, and negation---without collapsing back into a
+bag of ad hoc special cases. In other words, every well-formed query needs a
+clear denotation over passage candidates, and the system needs an internal form
+that supports both parsing and execution.
+
+The technical problem here was not merely parsing strings. It was defining an
+intermediate representation in which every construct had a local meaning and in
+which Boolean composition could be applied uniformly across otherwise different
+kinds of predicates. We also needed that representation to support explanation,
+because a user must be able to tell why a passage matched and how to revise the
+query if the result set is wrong.
+
+Here too, the easy alternative would have been to implement each feature as a
+special-case search routine: one path for section constraints, one for metadata,
+one for containment, and ad hoc branching for combinations. That style is common
+in search tools, but it would have made the language harder to extend, harder to
+explain, and harder to treat as a reusable artifact. The technical challenge was
+to avoid building a bag of options and instead define a compact language with a
+uniform execution model.
+
+We addressed this by compiling surface syntax into an explicit query-expression
+tree. Filter clauses become leaf predicates, while Boolean composition becomes
+\texttt{and}, \texttt{or}, and \texttt{not} nodes in an internal
+representation. Query execution then evaluates that tree over a stream of
+candidate passages produced by flattening the parsed document hierarchy. This is
+the core PL move in the system: the DSL is not a thin wrapper over API flags,
+but a real language with a compositional intermediate representation and an
+evaluation procedure. The resulting model lets us explain exactly what a query
+means, why a result matched, and how a user should revise the query when the
+result set is wrong. In effect, we turned patent search constraints into a
+small executable program over structured documents rather than a bundle of
+special-purpose search options.
+
+We can state that execution model more formally. Let $P(C)$ be the set of
+passages obtained by flattening a scoped corpus $C$ after normalization into
+the \DocSectionPassage{} hierarchy. The core syntax of the DSL is:
+
+$$
+\begin{array}{rcl}
+e & ::= & f \mid \textsf{not}\ e \mid e\ \textsf{and}\ e \mid e\ \textsf{or}\ e \\
+f & ::= & \textsf{section}(s) \mid \textsf{contains}(t) \mid \textsf{heading}(h) \\
+  & \mid & \textsf{meta}(k, \odot, v) \mid \textsf{cpc}(c) \mid \textsf{paragraph}(p) \\
+  & \mid & \textsf{claim}(n) \mid \textsf{figure}(g)
+\end{array}
+$$
+
+where $s$ ranges over canonical section types,
+$\odot \in \{\textsf{eq},\textsf{lt},\textsf{lte},\textsf{gt},\textsf{gte},\textsf{contains},\textsf{startswith}\}$
+selects a metadata comparison operator, and the remaining terminals range over
+strings or identifiers in the obvious way. In the concrete DSL, the last two
+cases correspond to the substring and prefix operators written with
+\texttt{\~{}} and \texttt{\string^}. The denotation of a query is a set of
+passages:
+
+$$
+\llbracket f \rrbracket_C = \{ p \in P(C) \mid f\text{ holds on }p \},
+$$
+
+with Boolean structure interpreted compositionally:
+
+$$
+\llbracket e_1\ \textsf{and}\ e_2 \rrbracket_C = \llbracket e_1 \rrbracket_C \cap \llbracket e_2 \rrbracket_C,
+\qquad
+\llbracket e_1\ \textsf{or}\ e_2 \rrbracket_C = \llbracket e_1 \rrbracket_C \cup \llbracket e_2 \rrbracket_C,
+$$
+
+$$
+\llbracket \textsf{not}\ e \rrbracket_C = P(C) \setminus \llbracket e \rrbracket_C.
+$$
+
+This is a small formalism, but it captures the key claim of the section: every
+query construct has a local meaning over normalized passages, and composition
+is set-theoretic rather than ad hoc.
+
+That decision also supports two downstream properties that matter in practice.
+First, it enables the match-reason strings shown in the UI, because the engine
+can report which leaf predicates succeeded under which Boolean context. Second,
+it gives the language a stable place to grow. Future constructs such as richer
+synonym operators or admissibility predicates can be added as new expression
+forms rather than bolted on as one-off UI features.
+
+\subsection{Challenge 3: Reifying Search Results as Reusable Evidence}
+
+The third challenge was to make query results reusable as evidence rather than
+ephemeral hits. A matched passage is only useful if the examiner can inspect
+its local context, recover its citeable location, and later reproduce how it was
+found. Traditional search interfaces treat result presentation and downstream
+note-taking as separate problems; our tool needed a single representation that
+could serve both.
+
+The formal problem was to define a result object rich enough to support three
+different operations at once: immediate relevance judgment, later citation, and
+downstream reuse in claim mapping. A bare text snippet is insufficient for all
+three, because it omits the structural anchor, the surrounding context, and the
+query state that produced it.
+
+This challenge is easy to underestimate because conventional systems usually
+split it across products: search returns a hit, and some other tool handles
+notes, citation, or authoring. Our study suggested that this split is itself a
+source of breakdown. Once a useful passage leaves the search interface, the user
+immediately loses the conditions under which it was found and must reconstruct
+that meaning manually. The technical challenge was therefore to define an
+evidence object that remains meaningful outside the moment of retrieval.
+
+Our solution was to preserve provenance end to end. Each query match carries its
+document ID, section type, section title, passage index, optional paragraph or
+claim anchor, neighboring context, and a set of human-readable reason strings
+derived from the predicates that matched. When a user adds a result to the
+claim-chart workspace, the stored chart row also records the source query text,
+source document IDs, and result key. This turns evidence capture into a
+programmable artifact rather than a transcription step: a row in the chart is
+not only an excerpt but also a reference back to the executable query state that
+produced it. That provenance-preserving representation is what makes the search
+and synthesis workflow inspectable and reversible. The key solution was to
+treat provenance as part of the data model, not as logging metadata layered on
+after retrieval.
+
+Again, the point can be stated formally. A query match is not modeled as a bare
+string, but as a structured value
+
+$$
+\mathit{Match} = \left\langle
+\begin{array}{l}
+\mathit{passageId},\ \mathit{documentId}, \\
+\mathit{sectionType},\ \mathit{sectionTitle}, \\
+\mathit{passageIndex},\ \mathit{passageText}, \\
+\mathit{contextBefore},\ \mathit{contextAfter}, \\
+\mathit{reasons},\ \mathit{paragraphId?}, \\
+\mathit{claimNo?},\ \mathit{figureRefs?}
+\end{array}
+\right\rangle
+$$
+
+and the evidence object carried into downstream synthesis extends that value
+with the program state that produced it:
+
+$$
+\begin{array}{rcl}
+\mathit{Evidence} & = & \mathit{Match} \times \mathit{QueryText} \\
+& & \times\ \mathcal{P}(\mathit{DocumentId}) \\
+& & \times\ \mathit{ResultKey}
+\end{array}
+$$
+
+This typing decision is what makes the reuse story precise. Evidence is not
+``text plus notes''; it is a result value paired with enough provenance to be
+rechecked, regrouped, or exported without severing it from the query execution
+that produced it.
+
+This is also where the system stops being only a retrieval tool. Once result
+objects preserve enough state to be cited, revisited, and reorganized under
+claim elements, they become domain artifacts in their own right. That move is
+what connects the PL framing of explicit program state to the HCI observation
+that examiners are currently forced to externalize too much of their reasoning
+by hand.
 
 \subsection{Remaining Work}
 
-% TODO: List what remains to be done in the prototype:
-%   - Filing-date filtering (meta.filing_date predicate) with proper
-%     priority-date resolution (Need 2)
-%   - Synonym expansion operator or integration with a thesaurus backend
-%     (Need 1)
-%   - Claim-element tagging and mapping workspace (Need 3)
-%   - Support for NOT and parenthesized precedence in the DSL grammar
-%   - Embedding-based retrieval as an alternative ranking mode
+The prototype is still incomplete in three technically important ways. First,
+legal admissibility is approximated through derived date fields rather than a
+full model of continuation, provisional, and priority relationships, so the
+metadata layer still falls short of the legal reasoning examiners sometimes
+perform manually. Second, synonym support currently depends on explicit Boolean
+enumeration, curated term sets, and optional synonym hooks; a richer construct
+for soft matching remains to be designed if we want to preserve transparency
+without forcing every expansion into hand-written \texttt{OR} clauses. Third,
+the claim-chart workspace preserves provenance, but claim-element grouping and
+evidence reuse are still encoded mainly in UI state rather than in a more
+explicit programmable representation. Those remaining gaps point to the next
+step for the project: extending the language and data model so that more of the
+examiner's downstream reasoning becomes first-class rather than remaining
+implicit in the interface.
+
+A fourth open issue is scale. The current prototype is designed for an MVP-sized
+corpus and relies on lightweight metadata indexing, deferred document
+hydration, and passage-level evaluation over selected documents. Extending this
+model to much larger corpora while preserving interactive query latency would
+require more aggressive indexing and caching strategies, but those strategies
+would also need to preserve the same passage-level semantics and provenance
+model that make the current system explainable. In that sense, scaling the tool
+is not only a systems problem; it is also a representation problem.
 
 
 %% ====================================================================
@@ -1055,32 +1352,29 @@ is simple to describe: preprocess broad, hydrate narrow.
 %% ====================================================================
 \section{Implementation}
 
-% TODO: 1 paragraph to 0.5 pages of low-level implementation details.
-%
-% Suggested content:
-%   - Backend: Python 3, FastAPI, pypdf for text extraction from PDFs,
-%     custom recursive-descent DSL parser, passage store in structured JSON.
-%   - Frontend: React + TypeScript, Vite, thin client that calls
-%     /documents, /documents/parse, and /query endpoints.
-%   - Parser pipeline: parse_raw_to_json script ingests from data/raw/,
-%     writes structured JSON to data/parsed/.
-%   - Repository: https://github.com/shanayamalik/cs294-sp26
-%   - Tests: pytest unit tests for the DSL parser, query engine, and
-%     source loader.
-%   - Supported document sources: .txt and text-extractable .pdf;
-%     image-only/scanned PDFs require OCR pre-processing.
+The prototype is implemented as a Python~3 backend and a React/TypeScript
+frontend. The backend uses FastAPI and loads parsed patents into an in-memory
+document store on startup, then exposes endpoints for health checks, document
+listing, document preloading, raw-file parsing, synonym-set inspection, and DSL
+query execution. Raw sources in \texttt{backend/data/raw/} are converted into
+structured JSON documents in \texttt{backend/data/parsed/} through a parser
+pipeline built on \texttt{pypdf} for text-extractable PDFs and custom patent
+text parsing logic for section, paragraph, and claim extraction. Query strings
+are parsed by a custom recursive-descent parser into an internal expression
+tree and then evaluated by the query engine over flattened passage candidates
+drawn from the normalized \DocSectionPassage{}
+representation. The frontend is built with React~18, TypeScript, and Vite and
+acts as a thin client over the backend APIs, providing document selection,
+query editing, live refinement, result inspection, and claim-chart management;
+the chart export path uses the \texttt{docx} package to generate lightweight
+office-action-style artifacts.
 
-The backend is implemented in Python~3 using FastAPI and exposes three
-endpoints: \texttt{/documents} (list loaded documents), \texttt{/documents/parse}
-(trigger parsing of raw files), and \texttt{/query} (execute a DSL query).
-The frontend is a thin React/TypeScript client built with Vite. The parser
-pipeline uses \texttt{pypdf} for text extraction from PDFs and a custom
-recursive-descent parser for the DSL. Structured JSON documents are stored
-in \texttt{backend/data/parsed/}. The full implementation is available at
-\url{https://github.com/shanayamalik/cs294-sp26}.
-
-% TODO: Add sentences on test coverage, known limitations (OCR not supported),
-% and approximate lines of code or module count if useful.
+We also implemented pytest-based unit tests for the DSL parser, patent parser,
+query engine, source loader, synonym-set logic, store behavior, and API
+surface. The current prototype supports plain-text and text-extractable PDF
+patents; image-only scanned PDFs still require OCR as a preprocessing step. The
+full implementation, setup instructions, and supporting documentation are
+publicly available at \url{https://github.com/shanayamalik/cs294-sp26}.
 
 
 %% ====================================================================
@@ -1088,30 +1382,107 @@ in \texttt{backend/data/parsed/}. The full implementation is available at
 %% ====================================================================
 \section{Discussion}
 
-% TODO: ~1 page. Answer:
-%   - What are the key takeaway lessons from building this tool?
-%   - How could future implementers of languages or tools use these lessons?
-%
-% Suggested themes:
-%
-%   1. Structuring document formats as typed hierarchies enables a class of
-%      queries that are impossible in flat-text search systems. The legal
-%      structure of patents (sections with fixed roles, numbered claims,
-%      paragraph anchors) is a resource that existing tools ignore but that
-%      our tool exploits.
-%
-%   2. The gap between retrieval and sensemaking is a design space, not just
-%      a product gap. Building a DSL that lives in this gap (post-retrieval,
-%      pre-mapping) reveals that the two stages are not naturally sequential
-%      but iteratively coupled---a lesson for future tool builders in any
-%      domain with similar structure (legal documents, scientific literature,
-%      regulatory filings).
-%
-%   3. User-centered design at the DSL level: the need-finding work directly
-%      shaped the choice of section-scoped predicates, the AND/OR composability
-%      (vs. ranked retrieval), and the passage-level granularity of results.
-%      Without the study, it would have been tempting to build a simpler
-%      full-text search interface.
+The main lesson from this project is that the PL contribution is not merely
+``adding a DSL'' to an existing interface. The deeper intervention is to choose
+an abstraction boundary that matches the domain task. By re-representing patent
+documents as structured objects and by making sections, passages, anchors, and
+metadata queryable values, we created operations that flat document-level
+search cannot express cleanly. For future implementers, the practical lesson is
+to begin by asking what objects users actually reason about in their work, not
+what objects an existing tool or storage format happens to expose. In our case,
+the decisive move was to model patents as
+\DocSectionPassage{} rather than as opaque text. A concrete mistake a future
+tool builder could make is to accept the storage format as the semantic model:
+index whole documents, attach section labels as lightweight metadata, and then
+try to recover passage-level behavior later with special cases in the ranking
+or UI layer. Our experience suggests that this fails quickly. Once the system's
+real unit is still ``document,'' queries like ``find specification passages
+with a citeable anchor and local context'' become awkward exceptions instead of
+ordinary programs. A more reliable design move is to test the representation
+before polishing the interface: write down three domain queries users actually
+need, and check whether the core data model can express them directly without
+ fallback logic. If it cannot, the abstraction boundary is probably wrong.
+
+The second lesson is that retrieval and synthesis should often be treated as a
+single programmable workflow rather than two disconnected products. Existing
+systems return ranked documents and then rely on users to externalize
+everything that matters afterward: the exact passage, the citation anchor, the
+query that found it, and the claim element it may support. Our evidence-capture
+workflow suggests that these are not merely downstream usability conveniences;
+they are part of the same representation problem. For tool builders, this means
+that a result object should be designed for reuse, not just display. Once a
+result is modeled as \emph{passage + provenance + query context}, it can move
+into a claim chart without losing the semantics of how it was obtained. Here the
+concrete failure mode is to treat a result as a display-only snippet: some text
+to render on screen, perhaps with a document title and a hyperlink, but nothing
+that survives once the user copies it elsewhere. We saw why that breaks the
+workflow. The moment the snippet leaves the search page, the user must manually
+reconstruct why it matched, where it came from, and whether it still belongs to
+the active corpus. Future builders should therefore define the result object as
+if it will be consumed by a second tool, even when that second tool is part of
+the same product. In practice, that means preserving at least the passage,
+anchor, source document identity, query text, and a stable result key. If a
+downstream workflow cannot answer ``why do I still trust this snippet?'' then
+the result representation is too thin.
+
+The third lesson is methodological. Contextual inquiry did not just suggest UI
+features; it shaped the language design itself. Section-scoped predicates,
+Boolean composition, passage granularity, and provenance-carrying evidence rows
+all came from observed workflow constraints. Without that grounding, it would
+have been easy to build a more conventional full-text search interface or an
+opaque semantic-search layer. The broader lesson for future implementers is
+that need-finding should not stop at feature prioritization. It can and should
+inform what the language denotes, what counts as a stable intermediate
+representation, and what kinds of execution behavior users will find
+interpretable. A practical way to use this lesson is to trace one real task all
+the way through and mark every point where the user has to carry state manually
+from one representation to another. Those handoffs are often a better guide to
+language or environment design than a wish list of features. In our case, the
+important observations were not just ``users want better search'' but ``users
+manually carry forward synonym sets, admissibility decisions, passage context,
+and claim-mapping evidence.'' That is what justified the query language, the
+structured document model, and the provenance-carrying result object. Future
+builders should be skeptical of any language feature that cannot be traced back
+to an observed coordination problem in real work.
+
+A fourth lesson concerns transparency. In domains where expert users revise
+their search strategy as they learn, a tool should help them inspect and modify
+the search state rather than hide it behind a scoring model they cannot reason
+about. Our use of an explicit Boolean DSL and match-reason reporting was not a
+rejection of all richer retrieval methods; it was a design choice motivated by
+the need for local, comprehensible edits. Future implementers of interactive
+languages or environments should therefore treat explainability as a property of
+the underlying representation and execution model, not just as a layer of UI
+explanation pasted on after the fact. The concrete mistake here is to build an
+opaque ranking or semantic-search component and then try to patch over it with
+highlighted keywords, confidence badges, or post hoc explanation text. That may
+decorate the output, but it does not tell the user what to change next. Our
+experience during implementation added one further point that the study alone
+did not reveal. We expected match-reason strings to be a lightweight
+explanatory convenience, but in practice they changed how query revision felt.
+When a result carried explicit reasons such as a section match, a metadata hit,
+or a particular containment predicate, it became much easier to tell whether a
+bad result set came from an overbroad synonym expansion, an overly narrow
+structural constraint, or a corpus-selection mistake. That is a different kind
+of benefit than the one surfaced directly by contextual inquiry: it is not just
+that users want transparency in the abstract, but that predicate-level reasons
+can turn failed searches into diagnosable states during actual use. Future tool
+builders should therefore think of explanation not only as a user-facing trust
+feature, but as a debugging aid for interactive search itself. The most useful
+explanations were the ones that exposed exactly which parts of the executable
+query state had succeeded, because those were the explanations that made the
+next revision obvious.
+
+More broadly, we expect the same approach to matter beyond patents. Many expert
+document domains---regulatory filings, scientific literature, case law, safety
+reports---combine rich internal structure with downstream evidence work. In such
+domains, a useful programming intervention may not look like general-purpose
+automation. It may instead look like a domain-specific representation, a small
+query language over that representation, and artifacts that preserve query
+provenance as work moves downstream. The central takeaway from this project is
+therefore not patent-specific: when expert work depends on structured documents,
+iterative interpretation, and evidentiary reuse, the most valuable tool may be
+one that makes the underlying work state explicit, programmable, and portable.
 
 
 %% ====================================================================
@@ -1119,41 +1490,179 @@ in \texttt{backend/data/parsed/}. The full implementation is available at
 %% ====================================================================
 \section{Additional Notes}
 
-% TODO: 1-3 pages of free-form content. Suggested topics:
-%
-%   (a) Explicitly trace the connection from each of the five needs to
-%       specific tool features, for any reader who might still be uncertain
-%       about the HCI-PL connection:
-%
-%       Need 1 (synonyms)    -> OR operator in DSL for synonym expansion
-%       Need 2 (filing date) -> meta.filing_date predicate (planned)
-%       Need 3 (claim mapping) -> passage-level results with claimNo anchors,
-%                                  query reuse as text artifacts
-%       Need 4 (keyword location) -> section-scoped queries, neighboring context
-%       Need 5 (iterative refinement) -> composable DSL allows incremental
-%                                         query construction and reuse
-%
-%   (b) Limitations and threats to validity:
-%       - The prototype has been evaluated through design review, not a
-%         follow-up user study; it is not yet validated with patent examiners.
-%       - PDF parsing quality varies with document layout.
-%       - The document store currently holds a small corpus (5 patents);
-%         scalability has not been tested.
-%
-%   (c) Broader applicability:
-%       - The Document -> Section -> Passage abstraction and the DSL design
-%         generalize beyond patents to other structured document corpora
-%         (regulatory filings, scientific papers, legal opinions).
-%       - The approach of exposing document structure as typed filter
-%         predicates could inform DSL design in adjacent domains.
-%
-%   (d) Future directions:
-%       - Embedding-based retrieval as a soft-match alternative to exact
-%         contains: predicates (Need 1 / Need 5)
-%       - A claim workspace that integrates DSL query results directly into
-%         a structured claim chart (Need 3)
-%       - USPTO search integration for live prior-art retrieval within the
-%         same query environment
+\subsection{What Changed in a P03-Style Task}
+
+The clearest way to understand what we learned from building the prototype is
+not to restate the mapping from needs to features, but to compare how one of
+our observed tasks changes when it is replayed inside the system. Consider the
+P03-style task used in Section~5: identify prior art relevant to a claim about
+dynamic routing table updates, verify that candidate references are legally
+usable, inspect whether the teaching appears in the right part of the patent,
+and preserve the best evidence for claim mapping. In the observed workflow,
+those operations were spread across several loosely connected representations:
+search results, open patent documents, manual filing-date checks, ad hoc notes,
+and a separate claim-mapping artifact. Replaying the same task with the
+prototype made it clear that the primary benefit of the design is not faster
+typing or prettier retrieval results. It is the removal of several brittle
+state transitions that previously forced the examiner to reconstruct context by
+hand.
+
+In the old workflow, the first phase was corpus construction. P03 would gather
+candidate references from document-level search, then inspect them one by one
+to determine whether any were even admissible under the application's filing
+date. That meant the active corpus existed mostly in the examiner's head or in
+transient search history. In our prototype, this phase becomes explicit program
+state. The candidate set, metadata constraints, and query text all live in one
+place, so corpus construction is no longer a hidden precondition for the real
+work; it is part of the same inspectable artifact. Using the system ourselves
+made that shift feel more important than we expected. Much of the friction in
+the original workflow came from losing track of which references were still in
+play after several rounds of triage, not merely from the cost of typing date
+filters.
+
+The second phase was interpretive inspection. In the old workflow, once P03 had
+a promising document, they still had to open it, run local searches, jump among
+sections, and decide whether the relevant teaching occurred in the
+specification, claims, or some less useful region. That meant relevance was not
+judged at the moment of retrieval; it was judged only after a second round of
+navigational labor. Replaying the task in the prototype showed why the
+passage-level representation matters so much. Because result cards already carry
+section type, local context, and anchors, the examiner can make the first
+relevance judgment earlier and with less reconstruction. In practice, this did
+not eliminate close reading; rather, it moved the first meaningful judgment
+closer to the retrieval step, which is exactly where the earlier tools were
+weakest.
+
+The third phase was externalization. In the observed workflow, once P03 found a
+useful passage, the passage effectively left the search system. It was copied
+into notes or a claim chart, and its connection to the query, corpus state, and
+surrounding context became fragile. That break was easy to underestimate until
+we used the prototype end to end. What mattered was not just that the chart
+workspace stored text; it was that the evidence object kept enough provenance to
+remain meaningful after the moment of retrieval. This made the downstream chart
+feel less like a fresh authoring task and more like a continuation of the same
+analysis state. In other words, the prototype taught us that the real boundary
+in patent examination is not between search and writing, but between states
+that preserve evidence provenance and states that discard it. One further
+surprise was that the claim-chart workspace did more than hold evidence after
+the fact. We initially treated it as a destination for saved passages, but in
+actual use it also became a diagnostic surface: once passages were grouped under
+claim elements with their provenance intact, it became much easier to see when
+two snippets were really duplicating the same support, when an element still had
+no convincing evidence, or when a passage that looked persuasive in isolation
+was too weak once placed next to competing support. That was not something the
+study alone made fully visible. Building the end-to-end workflow showed that the
+synthesis surface can reveal gaps and redundancy earlier, rather than merely
+recording conclusions reached elsewhere.
+
+This comparison also clarified what the prototype still does not solve. The
+system makes corpus state, query state, and evidence state much more explicit,
+but legal admissibility is still only approximated through available metadata;
+synonym support still requires hand-authored expansions or curated term sets;
+and the claim-chart workspace is still lighter-weight than the full reasoning
+structure examiners eventually produce. Those remaining gaps are easier to name
+precisely after replaying the P03-style task in the tool, because we can now
+say which transitions have been collapsed successfully and which ones still leak
+manual work. That, more than any one feature, is what we learned from building
+and using the prototype ourselves: the most valuable interventions were the ones
+that turned previously implicit workflow state into something explicit,
+inspectable, and reusable.
+
+\subsection{Limitations and Threats to Validity}
+
+Several limitations constrain how strongly this prototype should be interpreted.
+First, the system has been informed by contextual inquiry and implemented as a
+working prototype, but it has not yet been evaluated through a follow-up study
+with patent examiners using the full tool in practice. As a result, the paper
+can support claims about observed workflow needs, about the design rationale of
+the prototype, and about the technical properties of the implementation, but it
+cannot yet support strong claims about productivity gains, preference, or
+long-term adoption. Second, the participant pool is small and focused on
+technical patent examination. That is appropriate for a need-finding study, but
+it means the findings should be interpreted as design-relevant observations for
+this domain rather than as a comprehensive account of all patent examination
+practice.
+
+Third, the current parser pipeline has the limitations of its source material.
+Plain-text patents with visible section markers and paragraph anchors are the
+best-supported case. Text-extractable PDFs are also supported, but extraction
+quality varies with layout, and image-only scanned PDFs still require OCR
+preprocessing outside the current system. Because the system's semantics depend
+on accurate section and passage boundaries, parsing fidelity is not just an
+implementation nuisance; it directly affects the reliability of structural
+predicates and citation anchors. Fourth, the prototype currently operates on a
+small parsed corpus. The current design decisions around metadata indexing,
+document preloading, and passage-level query execution have worked well enough
+for an MVP, but they have not yet been stress-tested at a scale comparable to
+production patent search systems.
+
+There is also a methodological limitation worth noting. Our need-finding data
+come from observed workflows around public patents and reconstructed search
+activity, not from direct instrumentation of proprietary examiner systems under
+live production conditions. That was the right choice for access and ethics, but
+it means there are likely additional organizational constraints, collaboration
+practices, and policy-driven behaviors that the prototype does not yet model.
+For the research community, the main implication is that this work should be
+read as a grounded design intervention, not as the final word on patent search
+tooling.
+
+\subsection{Broader Relevance Beyond Patents}
+
+Although the prototype is specific to patent examination, the underlying design
+pattern is likely to apply more broadly. Many expert document domains combine
+three properties that also appear here: documents have meaningful internal
+structure, users reason iteratively rather than in one-shot queries, and useful
+results must later be reused as evidence or justification in downstream work.
+Scientific literature review, regulatory compliance analysis, case-law research,
+safety report inspection, and policy analysis all share some version of this
+structure. In each of these settings, traditional document retrieval tends to
+collapse the domain into ranked blobs, while users actually reason about
+sections, excerpts, citations, and chains of interpretation.
+
+The contribution of this project to that broader space is therefore not just a
+patent-specific tool. It is the suggestion that a productive intervention may be
+to expose the domain's internal document structure as the semantic domain of a
+small language, then preserve the resulting query state and evidence objects as
+users move downstream. For future researchers, that suggests a concrete recipe:
+study how experts segment documents conceptually, encode those units into an
+explicit representation, design a language whose predicates target those units,
+and ensure that results carry enough provenance to survive beyond the moment of
+retrieval. The particular predicates will vary from domain to domain, but the
+general architecture may transfer surprisingly well.
+
+\subsection{Future Directions}
+
+The most immediate next step is deeper language support for parts of the patent
+workflow that are still only partially modeled. Legal admissibility reasoning is
+the clearest example. The current system can express filing-date constraints and
+derived metadata fields, but full priority reasoning for continuations,
+provisionals, and foreign applications remains outside the language. A second
+direction is to design a more principled notion of soft matching. Right now,
+synonym expansion is supported through explicit Boolean enumeration and curated
+term sets. That is useful and transparent, but it still places much of the
+burden on the examiner. A more advanced construct might support controlled
+semantic expansion while remaining inspectable enough to preserve the iterative
+revision model that participants valued.
+
+A third direction is to make more of the synthesis stage programmable. The
+claim-chart workspace currently preserves source query text and document IDs,
+but claim-element grouping and evidence reuse are still mostly UI-level
+operations. A richer representation for claim elements, limitation structure,
+and evidence relationships could extend the system from a provenance-preserving
+search environment into a more fully programmable claim-analysis environment.
+Finally, scaling remains an open challenge. Passage-level semantics and
+provenance-preserving results become more valuable, not less, as corpora grow,
+but scaling them requires indexing and caching strategies that do not erase the
+very structure that makes the tool interpretable. Future work therefore needs
+to treat scalability, semantics, and interaction design as linked problems
+rather than separate phases of engineering.
+
+Taken together, these limitations and directions point to a broader research
+agenda. The goal is not to replace expert legal-technical judgment with a more
+powerful search box. It is to build languages and environments in which the
+state of expert document work becomes explicit, inspectable, and reusable. That
+is the strongest claim this project makes, and it is the point from which we
+hope others can build.
 
 
 \begin{acks}
@@ -1162,7 +1671,7 @@ project and the CS~294 course at UC Berkeley. We also thank the ten patent
 examiners who generously shared their time, expertise, and workflows with us.
 \end{acks}
 
-\begin{thebibliography}{12}
+\begin{thebibliography}{21}
 
 \bibitem{Ko2006}
 A.~J. Ko, B.~A. Myers, M.~J. Coblenz, and H.~H. Aung.
@@ -1177,10 +1686,38 @@ P.~Pirolli and S.~Card.
 \newblock In {\em Proc. Int. Conf. Intelligence Analysis}, volume~5.
   MITRE, McLean, VA, 2005.
 
-\bibitem{Sadowski2018}
-C.~Sadowski, E.~S{\"o}derberg, L.~Church, M.~Sipko, and A.~Bacchelli.
-\newblock Modern Code Review: A Case Study at Google.
-\newblock In {\em Proc. ICSE-SEIP '18}, pages 181--190. ACM, 2018.
+\bibitem{Marchionini2006}
+G.~Marchionini.
+\newblock Exploratory Search: From Finding to Understanding.
+\newblock {\em Communications of the ACM}, 49(4):41--46, 2006.
+
+\bibitem{White2009}
+R.~W. White and R.~A. Roth.
+\newblock {\em Exploratory Search: Beyond the Query-Response Paradigm}.
+\newblock Morgan \& Claypool, 2009.
+
+\bibitem{Hearst2009}
+M.~A. Hearst.
+\newblock {\em Search User Interfaces}.
+\newblock Cambridge University Press, 2009.
+
+\bibitem{Bates1989}
+M.~J. Bates.
+\newblock The Design of Browsing and Berrypicking Techniques for the Online
+  Search Interface.
+\newblock {\em Online Review}, 13(5):407--424, 1989.
+
+\bibitem{Kuhlthau1991}
+C.~C. Kuhlthau.
+\newblock Inside the Search Process: Information Seeking from the User's
+  Perspective.
+\newblock {\em Journal of the American Society for Information Science},
+  42(5):361--371, 1991.
+
+\bibitem{Ellis1989}
+D.~Ellis.
+\newblock A Behavioural Approach to Information Retrieval System Design.
+\newblock {\em Journal of Documentation}, 45(3):171--212, 1989.
 
 \bibitem{Russell1993}
 D.~M. Russell, M.~J. Stefik, P.~Pirolli, and S.~K. Card.
@@ -1192,6 +1729,26 @@ M.~Lupu, K.~Mayer, N.~Kando, and A.~J. Trippe.
 \newblock {\em Current Challenges in Patent Information Retrieval},
   volume~29 of {\em The Information Retrieval Series}.
 \newblock Springer, 2013.
+
+\bibitem{Piroi2011}
+F.~Piroi and V.~Zenz.
+\newblock Evaluating Information Retrieval in the Intellectual Property
+  Domain: The CLEF-IP Campaign.
+\newblock In {\em Multilingual Information Access Evaluation I. Text Retrieval
+  Experiments}, pages 87--108. Springer, 2011.
+
+\bibitem{Magdy2010}
+W.~Magdy, J.~Leveling, and G.~J.~F. Jones.
+\newblock Exploring Structured Documents and Query Formulation Techniques for
+  Patent Retrieval.
+\newblock In {\em Multilingual Information Access Evaluation I. Text Retrieval
+  Experiments}, pages 410--417. Springer, 2010.
+
+\bibitem{Mahdabi2013}
+P.~Mahdabi and F.~Crestani.
+\newblock The Effect of Citation Analysis on Query Expansion for Patent
+  Retrieval.
+\newblock {\em Information Retrieval}, 17(5--6):412--429, 2013.
 
 \bibitem{Storey1999}
 M.-A.~D. Storey, F.~D. Fracchia, and H.~A. M{\"u}ller.
@@ -1225,18 +1782,17 @@ V.~Braun and V.~Clarke.
 \newblock Using Thematic Analysis in Psychology.
 \newblock {\em Qualitative Research in Psychology}, 3(2):77--101, 2006.
 
-% TODO: Add citations for new related work covered in Section 2
-% (DSL-related work, related tools). Suggested additions:
-%
-% \bibitem{Elasticsearch2018}
-% C.~Gormley and Z.~Tong.
-% \newblock {\em Elasticsearch: The Definitive Guide}.
-% \newblock O'Reilly Media, 2015.
-%
-% \bibitem{Chamberlin1974}
-% D.~D. Chamberlin and R.~F. Boyce.
-% \newblock SEQUEL: A Structured English Query Language.
-% \newblock In {\em Proc. ACM SIGFIDET Workshop}, pages 249--264. ACM, 1974.
+\bibitem{Chamberlin1974}
+D.~D. Chamberlin and R.~F. Boyce.
+\newblock SEQUEL: A Structured English Query Language.
+\newblock In {\em Proc. ACM SIGFIDET Workshop on Data Description, Access and
+  Control}, pages 249--264. ACM, 1974.
+
+\bibitem{Piwowarski2006}
+B.~Piwowarski and G.~Dupret.
+\newblock Evaluation in (XML) Information Retrieval: Expected
+  Precision-Recall with User Modelling.
+\newblock In {\em Proc. SIGIR '06}, pages 260--267. ACM, 2006.
 
 \end{thebibliography}
 

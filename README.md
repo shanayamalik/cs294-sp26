@@ -81,6 +81,12 @@ npm run dev:frontend
 
 5. Open the frontend URL printed by Vite (usually `http://localhost:5173`).
 
+## Working With New Patents
+
+- Add new source patents to `backend/data/raw/` as text-extractable `.pdf` files or `.txt` files.
+- Regenerate the parsed corpus with `npm run parse:raw`.
+- Parsed `backend/data/parsed/*.generated.json` files are treated as derived artifacts and are gitignored, so teammates should rerun `npm run parse:raw` after pulling new raw patent files.
+
 ## Common Commands
 
 - `npm run dev:backend` - start FastAPI with auto-reload on port `4000`

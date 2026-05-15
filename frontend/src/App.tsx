@@ -11,12 +11,6 @@ type DocumentSummary = {
 };
 
 type QueryResponse = {
-  synonymExpansions?: Array<{
-    seed: string;
-    terms: string[];
-    max: number;
-    topics: string;
-  }>;
   result: {
     totalMatches: number;
     matches: Array<{
@@ -38,8 +32,6 @@ type QueryResponse = {
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 const PASSAGE_PREVIEW_LIMIT = 420;
 const INLINE_FACET_LIMIT = 5;
-const DEFAULT_QUERY_TEXT = 'section:SPECIFICATION AND contains:"signal processing"';
-const SEARCH_STATE_STORAGE_KEY = "patent-query-search-state";
 
 type HighlightTerm = {
   value: string;
@@ -51,29 +43,23 @@ type HighlightSpan = {
   end: number;
 };
 
-type SynonymExpansion = NonNullable<QueryResponse["synonymExpansions"]>[number];
-
-type StoredSearchState = {
-  selectedDocumentIds: string[];
-  queryText: string;
-  queryResult: QueryResponse | null;
-  submittedQueryText: string;
+type AppProps = {
+  demoMode?: boolean;
 };
 
-export default function App() {
-  const storedSearchState = useMemo(() => loadStoredSearchState(), []);
+export default function App({ demoMode = false }: AppProps) {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(storedSearchState.selectedDocumentIds);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [selectedAssigneeFacets, setSelectedAssigneeFacets] = useState<string[]>([]);
   const [selectedInventorFacets, setSelectedInventorFacets] = useState<string[]>([]);
   const [assigneeFacetQuery, setAssigneeFacetQuery] = useState("");
   const [inventorFacetQuery, setInventorFacetQuery] = useState("");
-  const [queryText, setQueryText] = useState(storedSearchState.queryText);
+  const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"virtual network"');
   const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
-  const [queryResult, setQueryResult] = useState<QueryResponse | null>(storedSearchState.queryResult);
-  const [submittedQueryText, setSubmittedQueryText] = useState(storedSearchState.submittedQueryText);
+  const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
+  const [submittedQueryText, setSubmittedQueryText] = useState("");
   const [copiedCitationKey, setCopiedCitationKey] = useState<string | null>(null);
   const [savedToChartKey, setSavedToChartKey] = useState<string | null>(null);
   const [focusedResultKey, setFocusedResultKey] = useState<string | null>(null);
@@ -82,15 +68,6 @@ export default function App() {
   useEffect(() => {
     void loadDocuments();
   }, []);
-
-  useEffect(() => {
-    saveStoredSearchState({
-      selectedDocumentIds,
-      queryText,
-      queryResult,
-      submittedQueryText,
-    });
-  }, [queryResult, queryText, selectedDocumentIds, submittedQueryText]);
 
   const documentsById = useMemo(
     () => new Map(documents.map((doc) => [doc.id, doc])),
@@ -146,10 +123,41 @@ export default function App() {
 
   const visibleDocumentIds = useMemo(() => new Set(visibleDocuments.map((doc) => doc.id)), [visibleDocuments]);
 
-  const highlightTerms = useMemo(
-    () => mergeHighlightTerms(extractHighlightTerms(submittedQueryText), extractSynonymHighlightTerms(queryResult?.synonymExpansions ?? [])),
-    [queryResult?.synonymExpansions, submittedQueryText]
-  );
+  const rankedVisibleDocuments = useMemo(() => {
+    if (!demoMode) {
+      return visibleDocuments;
+    }
+
+    const selectedIdSet = new Set(selectedDocumentIds);
+    return [...visibleDocuments].sort((left, right) => {
+      const leftSelected = selectedIdSet.has(left.id);
+      const rightSelected = selectedIdSet.has(right.id);
+
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      return left.title.localeCompare(right.title);
+    });
+  }, [demoMode, selectedDocumentIds, visibleDocuments]);
+
+  const demoQueryPills = useMemo(() => {
+    if (!demoMode) {
+      return [] as string[];
+    }
+
+    const pills = [`${selectedDocumentIds.length} selected patents`];
+    const totalMetadataFilters = selectedAssigneeFacets.length + selectedInventorFacets.length;
+
+    if (totalMetadataFilters > 0) {
+      pills.push(totalMetadataFilters === 1 ? "1 metadata filter" : `${totalMetadataFilters} metadata filters`);
+    }
+
+    return pills;
+  }, [demoMode, selectedAssigneeFacets.length, selectedDocumentIds.length, selectedInventorFacets.length]);
+
+  const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+  const hasSubmittedQuery = submittedQueryText.trim().length > 0;
 
   useEffect(() => {
     if (selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0) {
@@ -263,6 +271,18 @@ export default function App() {
       if (preloadDebounceRef.current) clearTimeout(preloadDebounceRef.current);
     };
   }, [liveQueryEnabled, preloadDocuments, selectedDocumentIds]);
+
+  useEffect(() => {
+    if (!demoMode || liveQueryEnabled || pendingSearchNavigation) {
+      return;
+    }
+
+    if (documents.length === 0 || selectedDocumentIds.length === 0 || !queryText.trim()) {
+      return;
+    }
+
+    setLiveQueryEnabled(true);
+  }, [demoMode, documents.length, liveQueryEnabled, pendingSearchNavigation, queryText, selectedDocumentIds.length]);
 
   useEffect(() => {
     if (!focusedResultKey) {
@@ -381,13 +401,36 @@ export default function App() {
   }
 
   return (
-    <main className="page">
-      <section className="panel">
-        <h1>Patent Query Prototype</h1>
-        <p className="subtitle">
-          Document → Section → Passage querying with a minimal DSL. {" "}
-          <a href="#claim-chart-demo">Try claim chart demo →</a>
-        </p>
+    <main className={`page${demoMode ? " demoPage" : ""}`}>
+      {demoMode ? (
+        <section className="demoTopbar" aria-label="Demo comparison controls">
+          <div className="demoTopbarMeta">
+            <span className="demoTopbarLabel">Demo comparison</span>
+            <span>{documents.length} docs</span>
+            <span>{selectedDocumentIds.length} selected</span>
+          </div>
+          <div className="demoTopbarActions">
+            <a className="demoTopbarLink" href="/">
+              Current UI
+            </a>
+            <a className="demoTopbarLink demoTopbarLinkPrimary" href="#claim-chart-demo">
+              Chart workspace
+            </a>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={`panel${demoMode ? " demoControlPanel" : ""}`}>
+        <div className={demoMode ? "demoPanelHeading" : undefined}>
+          <div>
+            <h1>{demoMode ? "Search Workspace" : "Patent Query Prototype"}</h1>
+            <p className="subtitle">
+              {demoMode
+                ? "Structured document selection, metadata filtering, and DSL query composition in one place."
+                : <>Document → Section → Passage querying with a minimal DSL. <a href="#claim-chart-demo">Try claim chart demo →</a></>}
+            </p>
+          </div>
+        </div>
 
         <form onSubmit={onSubmit} className="queryForm">
           <fieldset className="documentPicker">
@@ -460,92 +503,196 @@ export default function App() {
                 {inventorFacetQuery.trim() && visibleInventorFacets.length === 0 ? <p className="facetHint">No inventors match that filter.</p> : null}
               </div>
             ) : null}
+            {demoMode && (selectedAssigneeFacets.length > 0 || selectedInventorFacets.length > 0) ? (
+              <div className="demoFacetResetRow">
+                <span className="facetHint">Reset filters to bring the full patent list back.</span>
+                <button type="button" className="demoFacetResetButton" onClick={clearMetadataFacets}>
+                  Clear facets
+                </button>
+              </div>
+            ) : null}
             <div className="documentPickerActions">
-              <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
-                Select visible
-              </button>
-              <button type="button" className="secondaryButton" onClick={clearDocuments}>
-                Clear
-              </button>
-              <button
-                type="button"
-                className="secondaryButton"
-                onClick={clearMetadataFacets}
-                disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
-              >
-                Clear facets
-              </button>
+              {!demoMode ? (
+                <>
+                  <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
+                    Select visible
+                  </button>
+                  <button type="button" className="secondaryButton" onClick={clearDocuments}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    onClick={clearMetadataFacets}
+                    disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
+                  >
+                    Clear facets
+                  </button>
+                </>
+              ) : null}
             </div>
-            <div className="documentOptions">
-              {visibleDocuments.map((doc) => (
-                <label key={doc.id} className="documentOption">
-                  <input
-                    type="checkbox"
-                    checked={selectedDocumentIds.includes(doc.id)}
-                    onChange={() => toggleDocument(doc.id)}
-                  />
-                  <span>
-                    <strong>{doc.title}</strong>
-                    <code>{doc.id}</code>
-                  </span>
-                </label>
-              ))}
-              {visibleDocuments.length === 0 ? <p className="subtitle">No documents match the current metadata facets.</p> : null}
+            <div className={`documentOptions${demoMode ? " demoDocumentOptions" : ""}`}>
+              {demoMode ? (
+                <div className="demoDocumentListHeader">
+                  <span>Selected patents</span>
+                  <div className="demoDocumentListHeaderActions">
+                    <span>{selectedDocumentIds.length} chosen</span>
+                    <button type="button" className="demoDocumentHeaderButton" onClick={selectAllDocuments}>
+                      Select filtered
+                    </button>
+                    <button type="button" className="demoDocumentHeaderButton" onClick={clearDocuments}>
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {rankedVisibleDocuments.map((doc) => {
+                const selected = selectedDocumentIds.includes(doc.id);
+
+                return (
+                  <label key={doc.id} className={`documentOption${selected && demoMode ? " documentOptionSelected" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleDocument(doc.id)}
+                    />
+                    <span>
+                      <strong>{doc.title}</strong>
+                      <code>{doc.id}</code>
+                    </span>
+                  </label>
+                );
+              })}
+              {visibleDocuments.length === 0 ? (
+                <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+                  <strong className="stateCardTitle">No patents match the current filters</strong>
+                  <p className="stateCardText">Try clearing metadata facets or broadening the assignee and inventor filters.</p>
+                </div>
+              ) : null}
             </div>
           </fieldset>
 
-          <label>
-            Query DSL
-            <textarea
-              rows={3}
-              value={queryText}
-              onChange={(event) => {
-                setLiveQueryEnabled(true);
-                setQueryText(event.target.value);
-              }}
-              spellCheck={false}
-            />
-          </label>
+          {demoMode ? (
+            <div className="demoQueryShell">
+              <div className="demoQueryToolbar">
+                <div className="demoQueryMeta">
+                  <strong>Query DSL</strong>
+                  <p>Searching passages inside the current filtered corpus.</p>
+                </div>
+                {queryResult ? <span className="demoQueryCount">{queryResult.result.totalMatches} matches last run</span> : null}
+              </div>
 
-          <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
-            {loading ? "Running..." : "Run Query"}
-          </button>
-        </form>
-
-        {selectedDocuments.length > 0 ? (
-          <p className="docMeta">
-            Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
-            {selectedDocuments.map((doc) => doc.id).join(", ")}
-          </p>
-        ) : null}
-
-        {error ? <div className="error">{error}</div> : null}
-      </section>
-
-      <section className="panel">
-        <h2>Results</h2>
-        <p className="subtitle">
-          {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
-        </p>
-        {queryResult?.synonymExpansions?.length ? (
-          <div className="synonymSummary" aria-label="Synonyms used">
-            {queryResult.synonymExpansions.map((expansion) => (
-              <div key={`${expansion.seed}:${expansion.max}:${expansion.topics}`} className="synonymExpansion">
-                <span className="synonymSeed">{expansion.seed}</span>
-                <div className="synonymTerms">
-                  {expansion.terms.map((term) => (
-                    <span key={term} className="synonymTerm">
-                      {term}
+              {demoQueryPills.length > 0 ? (
+                <div className="demoQueryPills">
+                  {demoQueryPills.map((pill) => (
+                    <span key={pill} className="demoQueryPill">
+                      {pill}
                     </span>
                   ))}
                 </div>
+              ) : null}
+
+              <label className="demoQueryField">
+                <span className="demoQueryFieldLabel">Draft query</span>
+                <textarea
+                  rows={3}
+                  value={queryText}
+                  onChange={(event) => {
+                    setLiveQueryEnabled(true);
+                    setQueryText(event.target.value);
+                  }}
+                  spellCheck={false}
+                />
+              </label>
+
+              <div className="demoQueryFooter">
+                <p className="demoQueryHint">Start with section and phrase matching, then narrow only if needed.</p>
+                <div className="demoQueryActions">
+                  <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
+                    {loading ? "Running..." : "Search passages"}
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <>
+              <label>
+                Query DSL
+                <textarea
+                  rows={3}
+                  value={queryText}
+                  onChange={(event) => {
+                    setLiveQueryEnabled(true);
+                    setQueryText(event.target.value);
+                  }}
+                  spellCheck={false}
+                />
+              </label>
+
+              <div>
+                <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
+                  {loading ? "Running..." : "Run Query"}
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+
+        {selectedDocuments.length > 0 ? (
+          demoMode ? (
+            <p className="docMeta demoDocMetaCompact">
+              Searching {selectedDocuments.length} selected / {visibleDocuments.length} visible / {documents.length} total documents.
+            </p>
+          ) : (
+            <p className="docMeta">
+              Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
+              {selectedDocuments.map((doc) => doc.id).join(", ")}
+            </p>
+          )
         ) : null}
 
+        {error ? (
+          <div className={`stateCard stateCardError${demoMode ? " demoStateCard" : ""}`}>
+            <strong className="stateCardTitle">Something went wrong</strong>
+            <p className="stateCardText error">{error}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className={`panel${demoMode ? " demoResultsPanel" : ""}`}>
+        <div className={demoMode ? "demoPanelHeading" : undefined}>
+          <div>
+            <h2>Results</h2>
+            <p className="subtitle">
+              {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
+            </p>
+          </div>
+          {demoMode ? <span className="demoResultsBadge">Passages, not document hits</span> : null}
+        </div>
+
         <div className="results">
-          {queryResult?.result.matches.map((match) => {
+          {loading ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">Running query</strong>
+              <p className="stateCardText">Checking the selected patents and loading the matching passages.</p>
+            </div>
+          ) : queryResult && queryResult.result.matches.length === 0 ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">No matching passages</strong>
+              <p className="stateCardText">Try a broader phrase, remove a metadata filter, or search a larger patent selection.</p>
+            </div>
+          ) : !queryResult ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">No results yet</strong>
+              <p className="stateCardText">
+                {selectedDocumentIds.length === 0
+                  ? "Select at least one patent, then run a query to inspect passages."
+                  : hasSubmittedQuery
+                    ? "Run another query to inspect passages in the current patent selection."
+                    : "Run a query to inspect passages in the current patent selection."}
+              </p>
+            </div>
+          ) : queryResult?.result.matches.map((match) => {
             const documentTitle = documentsById.get(match.documentId)?.title ?? match.documentId;
             const resultKey = `${match.documentId}:${match.passageId}`;
 
@@ -553,19 +700,21 @@ export default function App() {
               <article
                 key={resultKey}
                 id={resultElementId(resultKey)}
-                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}`}
+                className={`resultCard${focusedResultKey === resultKey ? " focusedResult" : ""}${demoMode ? " demoResultCard" : ""}`}
               >
-                <header>
-                  <span className="documentLabel">
+                <header className={demoMode ? "demoResultHeader" : undefined}>
+                  <div className={demoMode ? "demoResultMetaRow" : undefined}>
+                  <span className={`documentLabel${demoMode ? " demoResultTitle" : ""}`}>
                     {highlightText(documentTitle, highlightTerms)}
                     <code>{highlightText(match.documentId, highlightTerms)}</code>
                   </span>
-                  <strong>{match.sectionType}</strong>
-                  <span>{highlightText(match.sectionTitle, highlightTerms)}</span>
-                  <span>Passage {match.passageIndex}</span>
-                  {match.paragraphId != null ? <span className="anchor">¶[{match.paragraphId}]</span> : null}
-                  {match.claimNo != null ? <span className="anchor">Claim {match.claimNo}</span> : null}
-                  <div className="resultActions">
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>{match.sectionType}</span>
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>{highlightText(match.sectionTitle, highlightTerms)}</span>
+                  <span className={demoMode ? "demoResultMetaPill" : undefined}>Passage {match.passageIndex}</span>
+                  {match.paragraphId != null ? <span className={`anchor${demoMode ? " demoResultMetaPill demoAnchorPill" : ""}`}>¶[{match.paragraphId}]</span> : null}
+                  {match.claimNo != null ? <span className={`anchor${demoMode ? " demoResultMetaPill demoAnchorPill" : ""}`}>Claim {match.claimNo}</span> : null}
+                  </div>
+                  <div className={`resultActions${demoMode ? " demoResultActions" : ""}`}>
                     <button
                       type="button"
                       className="copyCitationButton"
@@ -586,11 +735,13 @@ export default function App() {
                   </div>
                 </header>
 
-                <p className="passagePreview">{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
+                <p className={`passagePreview${demoMode ? " demoPassagePreview" : ""}`}>{highlightText(previewPassage(match.passageText), highlightTerms)}</p>
 
-                <details>
-                  <summary>Full passage + context</summary>
-                  <div className="contextBlock">
+                <details className={demoMode ? "demoDisclosure demoDisclosureUtility" : undefined}>
+                  <summary className={demoMode ? "demoDisclosureSummary demoDisclosureSummaryUtility" : undefined}>
+                    <span className={demoMode ? "demoDisclosureSummaryText" : undefined}>Full passage + context</span>
+                  </summary>
+                  <div className={`contextBlock${demoMode ? " demoContextBlock" : ""}`}>
                     <p>
                       <b>Matched passage:</b> {highlightText(match.passageText, highlightTerms)}
                     </p>
@@ -644,63 +795,6 @@ function createChartRow(
   };
 }
 
-function loadStoredSearchState(): StoredSearchState {
-  const fallback: StoredSearchState = {
-    selectedDocumentIds: [],
-    queryText: DEFAULT_QUERY_TEXT,
-    queryResult: null,
-    submittedQueryText: "",
-  };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
-    if (!raw) {
-      return fallback;
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return fallback;
-    }
-
-    return {
-      selectedDocumentIds: Array.isArray(parsed.selectedDocumentIds)
-        ? parsed.selectedDocumentIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
-        : fallback.selectedDocumentIds,
-      queryText: typeof parsed.queryText === "string" ? parsed.queryText : fallback.queryText,
-      queryResult: isQueryResponse(parsed.queryResult) ? parsed.queryResult : fallback.queryResult,
-      submittedQueryText: typeof parsed.submittedQueryText === "string" ? parsed.submittedQueryText : fallback.submittedQueryText,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function saveStoredSearchState(state: StoredSearchState) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(SEARCH_STATE_STORAGE_KEY, JSON.stringify(state));
-}
-
-function isQueryResponse(value: unknown): value is QueryResponse {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const result = (value as { result?: unknown }).result;
-  if (!result || typeof result !== "object") {
-    return false;
-  }
-
-  return typeof (result as { totalMatches?: unknown }).totalMatches === "number" && Array.isArray((result as { matches?: unknown }).matches);
-}
-
 function resultElementId(resultKey: string) {
   return `result-${resultKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
@@ -751,27 +845,6 @@ function extractHighlightTerms(queryText: string) {
 
   const uniqueTerms = new Map<string, HighlightTerm>();
   for (const term of terms.filter((term) => term.value)) {
-    const key = term.value.toLowerCase();
-    const existing = uniqueTerms.get(key);
-    uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);
-  }
-
-  return [...uniqueTerms.values()].sort((left, right) => right.value.length - left.value.length);
-}
-
-function extractSynonymHighlightTerms(expansions: SynonymExpansion[]) {
-  return expansions.flatMap((expansion) =>
-    expansion.terms.map((term) => ({
-      value: term,
-      allowRegex: false,
-    }))
-  );
-}
-
-function mergeHighlightTerms(...termGroups: HighlightTerm[][]) {
-  const uniqueTerms = new Map<string, HighlightTerm>();
-
-  for (const term of termGroups.flat().filter((term) => term.value)) {
     const key = term.value.toLowerCase();
     const existing = uniqueTerms.get(key);
     uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);

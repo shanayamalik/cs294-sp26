@@ -10,7 +10,11 @@ type ClaimElementGroup = {
   rows: ChartRow[];
 };
 
-export default function ClaimChartDemo() {
+type ClaimChartDemoProps = {
+  demoMode?: boolean;
+};
+
+export default function ClaimChartDemo({ demoMode = false }: ClaimChartDemoProps) {
   const [rows, setRows] = useState<ChartRow[]>(() => loadChartRows());
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -166,20 +170,54 @@ export default function ClaimChartDemo() {
   }
 
   return (
-    <main className="chartDemoPage">
-      <section className="panel chartDemoIntro">
-        <h1>Claim Chart Demo</h1>
-        <p className="subtitle">
-          A separate mock workflow for collecting evidence into a lightweight claim chart. <a href="#">Back to search →</a>
-        </p>
+    <main className={`chartDemoPage${demoMode ? " demoChartPage" : ""}`}>
+      {demoMode ? (
+        <section className="demoTopbar" aria-label="Demo comparison controls">
+          <div className="demoTopbarMeta">
+            <span className="demoTopbarLabel">Demo comparison</span>
+            <span>{rows.length} evidence row{rows.length === 1 ? "" : "s"}</span>
+            <span>{groupedRows.length} group{groupedRows.length === 1 ? "" : "s"}</span>
+          </div>
+          <div className="demoTopbarActions">
+            <a className="demoTopbarLink" href="/demo">
+              Search workspace
+            </a>
+            <a className="demoTopbarLink demoTopbarLinkPrimary" href="/">
+              Current UI
+            </a>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={`panel chartDemoIntro${demoMode ? " demoChartIntro" : ""}`}>
+        <div className={demoMode ? "demoPanelHeading" : undefined}>
+          <div>
+            <h1>{demoMode ? "Claim Chart Workspace" : "Claim Chart Demo"}</h1>
+            <p className="subtitle">
+              {demoMode
+                ? "The comparison view keeps the workflow intact but presents saved evidence and grouped claim rows with a calmer, more product-like frame."
+                : <>A separate mock workflow for collecting evidence into a lightweight claim chart. <a href="#">Back to search →</a></>}
+            </p>
+          </div>
+          {!demoMode ? (
+            <div className="demoPanelLinks">
+              <a href="#">Back to search</a>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="chartDemoLayout">
         <div className="panel chartDemoColumn">
-          <h2>Saved Evidence</h2>
-          <p className="subtitle">Results added from the main search page appear here and stay editable in this separate workspace.</p>
+          <div className={demoMode ? "demoPanelHeading demoChartSectionHeader" : undefined}>
+            <div>
+              <h2>Saved Evidence</h2>
+              <p className="subtitle">Results added from the main search page appear here and stay editable in this separate workspace.</p>
+            </div>
+            {demoMode ? <span className="demoResultsBadge">{rows.length} buffered</span> : null}
+          </div>
           {rows.length > 0 ? (
-            <div className="chartBulkToolbar">
+            <div className={`chartBulkToolbar${demoMode ? " demoChartToolbar" : ""}`}>
               <span className="chartSelectionCount">{selectedRowCount} selected</span>
               <button type="button" className="chartLinkButton" onClick={selectAllRows} disabled={rows.length === 0 || selectedRowCount === rows.length}>
                 Select all
@@ -222,17 +260,23 @@ export default function ClaimChartDemo() {
                 </div>
               </article>
             ))}
-            {rows.length === 0 ? <p className="subtitle">No saved evidence yet. Add passages from search results with the new Add to chart action.</p> : null}
+            {rows.length === 0 ? (
+              <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+                <strong className="stateCardTitle">No saved evidence yet</strong>
+                <p className="stateCardText">Add passages from search results to start building a claim chart from reusable evidence.</p>
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div className="panel chartDemoColumn">
-          <div className="chartWorkspaceHeader">
+          <div className={`chartWorkspaceHeader${demoMode ? " demoChartWorkspaceHeader" : ""}`}>
             <div>
               <h2>Claim Chart Workspace</h2>
               <p className="subtitle">Rows with the same claim and element label are grouped under one claim element with separate evidence entries beneath it.</p>
             </div>
-            <div className="chartHeaderActions">
+            <div className={`chartHeaderActions${demoMode ? " demoChartHeaderActions" : ""}`}>
+              {demoMode ? <span className="demoResultsBadge">{groupedRows.length} grouped elements</span> : null}
               <button type="button" className="chartActionButton" onClick={() => void copyChartRows()} disabled={rows.length === 0}>
                 {copied ? "Copied rows" : "Copy rows as TSV"}
               </button>
@@ -305,8 +349,8 @@ export default function ClaimChartDemo() {
                 <div className="chartGroupEvidenceList">
                   {group.rows.map((row, rowIndex) => (
                     <article key={row.id} className={`chartGroupEvidenceCard${selectedRowIdSet.has(row.id) ? " chartGroupEvidenceCardSelected" : ""}`}>
-                      <details className="chartEvidenceDisclosure">
-                        <summary className="chartEvidenceSummary">
+                      <details className={`chartEvidenceDisclosure${demoMode ? " demoDisclosureUtility" : ""}`}>
+                        <summary className={`chartEvidenceSummary${demoMode ? " demoDisclosureSummary demoDisclosureSummaryUtility" : ""}`}>
                           <label
                             className="chartSelectToggle chartEvidenceSelectToggle"
                             onClick={(event) => event.preventDefault()}
@@ -325,7 +369,7 @@ export default function ClaimChartDemo() {
                           <p className="chartEvidencePreview">{previewExcerpt(row.excerpt)}</p>
                         </summary>
 
-                        <div className="chartEvidenceDetail">
+                        <div className={`chartEvidenceDetail${demoMode ? " demoContextBlock" : ""}`}>
                           <p className="chartExcerpt">{row.excerpt || "No excerpt saved for this row."}</p>
                           <label className="chartFieldLabel">
                             Analysis
@@ -370,7 +414,12 @@ export default function ClaimChartDemo() {
             ))}
           </div>
 
-          {rows.length === 0 ? <p className="subtitle">No chart rows yet. Add an evidence item from the left.</p> : null}
+          {rows.length === 0 ? (
+            <div className={`stateCard${demoMode ? " demoStateCard" : ""}`}>
+              <strong className="stateCardTitle">Chart workspace empty</strong>
+              <p className="stateCardText">Once evidence is saved on the left, grouped claim elements will appear here for editing and export.</p>
+            </div>
+          ) : null}
         </div>
       </section>
     </main>

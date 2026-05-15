@@ -10,6 +10,7 @@ from .models import (
     CpcFilter,
     FigureFilter,
     FilterExpression,
+    HeadingFilter,
     MetadataFilter,
     NotExpression,
     OrExpression,
@@ -194,6 +195,13 @@ def _parse_clause(clause: str):
         if not phrase:
             raise ValueError("contains filter requires a non-empty phrase.")
         return ContainsFilter(kind="contains", value=phrase, mode="regex" if contains_match.group(1) else "literal")
+
+    heading_match = re.match(r'^(?:heading|sectionTitle):(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if heading_match:
+        heading = (heading_match.group(1) or heading_match.group(2) or "").strip()
+        if not heading:
+            raise ValueError("heading filter requires a non-empty value.")
+        return HeadingFilter(kind="heading", value=heading)
 
     cpc_match = re.match(r'^cpc:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
     if cpc_match:

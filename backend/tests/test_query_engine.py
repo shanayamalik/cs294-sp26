@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.models import ClaimFilter, ContainsFilter, Document, DocumentMetadata, FigureFilter, MetadataFilter, Passage, Query, Section, SectionFilter
+from app.models import ClaimFilter, ContainsFilter, Document, DocumentMetadata, FigureFilter, HeadingFilter, MetadataFilter, Passage, Query, Section, SectionFilter
 from app.query_engine import execute_query
 
 
@@ -170,6 +170,55 @@ def test_execute_query_background_filter_is_more_specific() -> None:
 
     assert result.totalMatches == 1
     assert result.matches[0].passageId == "p1"
+
+
+def test_execute_query_heading_filter_matches_section_title_substring() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="BACKGROUND",
+                title="BACKGROUND OF THE INVENTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="Background signal processing context.",
+                        index=0,
+                        sectionType="BACKGROUND",
+                        startOffset=0,
+                        endOffset=37,
+                    )
+                ],
+            ),
+            Section(
+                type="DESCRIPTION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p2",
+                        text="A signal processing module receives sensor data.",
+                        index=0,
+                        sectionType="DESCRIPTION",
+                        startOffset=0,
+                        endOffset=50,
+                    )
+                ],
+            ),
+        ],
+    )
+
+    query = Query(filters=[HeadingFilter(kind="heading", value="detailed descr")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p2"
+    assert 'Matched heading:"detailed descr"' in result.matches[0].reasons
 
 
 def test_execute_query_contains_supports_regex() -> None:

@@ -6,6 +6,18 @@ from time import perf_counter
 
 from .models import Document, DocumentMetadata
 
+DEMO_TITLE_OVERRIDES = {
+    "us-10324754-b2": "Managing virtual machine patterns",
+    "us-10747562-b2": "Nested hypervisor to run virtual machines on public clouds",
+    "us-10977063-b2": "Elastic compute fabric using virtual machine templates",
+    "us-8565118-b2": "Methods and apparatus for distributed dynamic network provisioning",
+    "us-8874749-b1": "Network fragmentation and virtual machine migration in a scalable cloud computing environment",
+    "us-9176767-b2": "Network interface card device pass-through with multiple nested hypervisors",
+    "us-9229755-b2": "User datagram protocol (UDP) packet migration in a virtual machine (VM) migration",
+    "us-9733973-b2": "Automatically determining sensor location in a virtualized computing environment",
+    "us-9858095-b2": "Dynamic virtual machine resizing in a cloud computing infrastructure",
+}
+
 
 class DocumentStore:
     def __init__(self) -> None:
@@ -52,7 +64,7 @@ class DocumentStore:
         return [
             {
                 "id": metadata.id,
-                "title": metadata.title,
+                "title": DEMO_TITLE_OVERRIDES.get(metadata.id, metadata.title),
                 "sourceFile": metadata.sourceFile,
                 "ingestedAt": metadata.ingestedAt,
                 "assigneeName": metadata.assignee.get("name") if metadata.assignee else None,

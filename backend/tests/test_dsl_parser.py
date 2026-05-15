@@ -29,6 +29,22 @@ def test_parse_contains_regex_query() -> None:
     assert query.filters[0].mode == "regex"
 
 
+def test_parse_heading_query() -> None:
+    query = parse_dsl('heading:"Detailed Description"')
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "heading"
+    assert query.filters[0].value == "Detailed Description"
+
+
+def test_parse_section_title_alias_query() -> None:
+    query = parse_dsl('sectionTitle:"Background of the Invention"')
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "heading"
+    assert query.filters[0].value == "Background of the Invention"
+
+
 def test_parse_synonym_of_query_expands_to_contains_or_expression() -> None:
     query = parse_dsl('synonym_of:"virtual machine"')
 

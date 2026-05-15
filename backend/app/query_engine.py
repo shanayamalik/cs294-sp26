@@ -12,6 +12,7 @@ from .models import (
     ClaimFilter,
     FilterExpression,
     FigureFilter,
+    HeadingFilter,
     MetadataFilter,
     NotExpression,
     OrExpression,
@@ -141,6 +142,9 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
     if isinstance(query_filter, ContainsFilter):
         return _contains_matches(candidate.passage.text, query_filter.value, query_filter.mode)
 
+    if isinstance(query_filter, HeadingFilter):
+        return query_filter.value.casefold() in candidate.section.title.casefold()
+
     if isinstance(query_filter, ParagraphFilter):
         return candidate.passage.paragraphId == query_filter.value
 
@@ -187,6 +191,9 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
     if isinstance(query_filter, ContainsFilter):
         filter_name = "contains.regex" if query_filter.mode == "regex" else "contains"
         return f'{prefix}{filter_name}:"{query_filter.value}"'
+
+    if isinstance(query_filter, HeadingFilter):
+        return f'{prefix}heading:"{query_filter.value}"'
 
     if isinstance(query_filter, ParagraphFilter):
         return f"{prefix}paragraph:{query_filter.value}"

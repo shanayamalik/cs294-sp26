@@ -34,3 +34,5 @@
 32. `claim:12 AND contains:"standby mode"`
 33. `figure:"FIG. 2"`
 34. `section:DESCRIPTION AND figure:"FIG. 4"`
+35. `heading:"Detailed Description" AND contains:"virtual machine"`
+36. `sectionTitle:"Background" AND contains:"migration"`

@@ -76,6 +76,11 @@ class ContainsFilter(BaseModel):
     mode: Literal["literal", "regex"] = "literal"
 
 
+class HeadingFilter(BaseModel):
+    kind: Literal["heading"]
+    value: str
+
+
 class MetadataFilter(BaseModel):
     kind: Literal["metadata"]
     field: str
@@ -104,7 +109,7 @@ class FigureFilter(BaseModel):
 
 
 QueryFilter = Annotated[
-    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter, ParagraphFilter, ClaimFilter, FigureFilter],
+    Union[SectionFilter, ContainsFilter, HeadingFilter, MetadataFilter, CpcFilter, ParagraphFilter, ClaimFilter, FigureFilter],
     Field(discriminator="kind"),
 ]
 

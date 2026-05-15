@@ -456,8 +456,6 @@ export default function App() {
                   />
                   <span>
                     <strong>{doc.title}</strong>
-                    {doc.assigneeName ? <small>{doc.assigneeName}</small> : null}
-                    {doc.inventorNames?.length ? <small>{doc.inventorNames.slice(0, 2).join("; ")}</small> : null}
                     <code>{doc.id}</code>
                   </span>
                 </label>

@@ -18,6 +18,7 @@
 - Query filters:
   - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
+  - `heading:"text"` / `sectionTitle:"text"` for case-insensitive section-heading substring matching
   - `synonym_of:"term"` for deterministic built-in synonym expansion into ordinary passage text matching
   - `claim:NN` for direct claim-number filtering
   - `figure:"FIG. N"` for filtering passages annotated with figure references
@@ -63,7 +64,7 @@
   - ~~add finer-grained section filters so users can distinguish `BACKGROUND`, `SUMMARY`, and detailed-description style sections instead of only the broader `SPECIFICATION` bucket~~ **done**
   - ~~expose already-extracted structural fields such as `claimNo` and `figureRefs` as queryable filters~~ **done**
   - remaining action items:
-    - consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect
+    - ~~consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect~~ **done**
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
   - recommended focus:
     - ~~add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them~~ **done**
@@ -115,7 +116,6 @@
   - decide which additional metadata fields deserve first-class aliases instead of nested-only access
 - Medium priority / strong workflow payoff:
   - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
-  - consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect
 - Lower priority / important for polish or validation:
   - document the legal limits of the helper-based date fields before extending them further, so the tool stays honest about what is heuristic versus legally definitive
   - benchmark lazy-load / preload behavior on a larger corpus and define concrete acceptance targets for startup latency, first-query latency, and memory use

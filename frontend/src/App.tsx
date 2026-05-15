@@ -11,6 +11,12 @@ type DocumentSummary = {
 };
 
 type QueryResponse = {
+  synonymExpansions?: Array<{
+    seed: string;
+    terms: string[];
+    max: number;
+    topics: string;
+  }>;
   result: {
     totalMatches: number;
     matches: Array<{
@@ -598,7 +604,6 @@ export default function App({ demoMode = false }: AppProps) {
               </label>
 
               <div className="demoQueryFooter">
-                <p className="demoQueryHint">Start with section and phrase matching, then narrow only if needed.</p>
                 <div className="demoQueryActions">
                   <button type="submit" disabled={loading || selectedDocumentIds.length === 0}>
                     {loading ? "Running..." : "Search passages"}
@@ -658,6 +663,22 @@ export default function App({ demoMode = false }: AppProps) {
             <p className="subtitle">
               {queryResult ? `${queryResult.result.totalMatches} match(es)` : "Run a query to inspect passages."}
             </p>
+            {queryResult?.synonymExpansions?.length ? (
+              <div className="synonymSummary" aria-label="Synonyms used">
+                {queryResult.synonymExpansions.map((expansion) => (
+                  <div key={`${expansion.seed}:${expansion.max}:${expansion.topics}`} className="synonymExpansion">
+                    <span className="synonymSeed">{expansion.seed}</span>
+                    <div className="synonymTerms">
+                      {expansion.terms.map((term) => (
+                        <span key={term} className="synonymTerm">
+                          {term}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           {demoMode ? <span className="demoResultsBadge">Passages, not document hits</span> : null}
         </div>

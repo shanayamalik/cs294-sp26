@@ -30,3 +30,7 @@
 28. `section:DESCRIPTION AND contains:"sensor data"`
 29. `synonym_of:"virtual machine"`
 30. `section:DESCRIPTION AND synonym_of:"routing table"`
+31. `claim:8`
+32. `claim:12 AND contains:"standby mode"`
+33. `figure:"FIG. 2"`
+34. `section:DESCRIPTION AND figure:"FIG. 4"`

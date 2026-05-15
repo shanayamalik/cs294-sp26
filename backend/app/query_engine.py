@@ -9,7 +9,9 @@ from .models import (
     CpcFilter,
     Document,
     AndExpression,
+    ClaimFilter,
     FilterExpression,
+    FigureFilter,
     MetadataFilter,
     NotExpression,
     OrExpression,
@@ -142,6 +144,12 @@ def _filter_matches(document: Document, candidate: _Candidate, query_filter: Que
     if isinstance(query_filter, ParagraphFilter):
         return candidate.passage.paragraphId == query_filter.value
 
+    if isinstance(query_filter, ClaimFilter):
+        return candidate.passage.claimNo == query_filter.value
+
+    if isinstance(query_filter, FigureFilter):
+        return _figure_matches(candidate.passage.figureRefs, query_filter.value)
+
     return False
 
 
@@ -183,6 +191,12 @@ def _reason(query_filter: QueryFilter, negated: bool) -> str:
     if isinstance(query_filter, ParagraphFilter):
         return f"{prefix}paragraph:{query_filter.value}"
 
+    if isinstance(query_filter, ClaimFilter):
+        return f"{prefix}claim:{query_filter.value}"
+
+    if isinstance(query_filter, FigureFilter):
+        return f'{prefix}figure:"{query_filter.value}"'
+
     return f"{prefix}unknown"
 
 
@@ -221,6 +235,7 @@ def _candidate_to_match(document: Document, candidate: _Candidate) -> QueryMatch
         reasons=candidate.reasons,
         paragraphId=candidate.passage.paragraphId,
         claimNo=candidate.passage.claimNo,
+        figureRefs=candidate.passage.figureRefs,
     )
 
 
@@ -239,6 +254,28 @@ def _contains_matches(text: str, expected: str, mode: str = "literal") -> bool:
         return pattern is not None and pattern.search(text) is not None
 
     return expected.casefold() in text.casefold()
+
+
+def _figure_matches(actual_refs: list[str] | None, expected: str) -> bool:
+    if not actual_refs:
+        return False
+
+    normalized_expected = _normalize_figure_ref(expected)
+    return any(_normalize_figure_ref(actual_ref) == normalized_expected for actual_ref in actual_refs)
+
+
+def _normalize_figure_ref(value: str) -> str:
+    normalized = re.sub(r"\bFIGURE\b", "FIG", value.upper())
+    normalized = normalized.replace(".", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    if re.fullmatch(r"[0-9]+[A-Z]?", normalized):
+        return f"FIG {normalized}"
+
+    if normalized.startswith("FIG "):
+        return normalized
+
+    return normalized
 
 
 @lru_cache(maxsize=512)

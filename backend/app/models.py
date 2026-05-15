@@ -93,8 +93,18 @@ class ParagraphFilter(BaseModel):
     value: str
 
 
+class ClaimFilter(BaseModel):
+    kind: Literal["claim"]
+    value: int
+
+
+class FigureFilter(BaseModel):
+    kind: Literal["figure"]
+    value: str
+
+
 QueryFilter = Annotated[
-    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter, ParagraphFilter],
+    Union[SectionFilter, ContainsFilter, MetadataFilter, CpcFilter, ParagraphFilter, ClaimFilter, FigureFilter],
     Field(discriminator="kind"),
 ]
 
@@ -166,6 +176,7 @@ class QueryMatch(BaseModel):
     reasons: list[str]
     paragraphId: str | None = None
     claimNo: int | None = None
+    figureRefs: list[str] | None = None
 
 
 class QueryResult(BaseModel):

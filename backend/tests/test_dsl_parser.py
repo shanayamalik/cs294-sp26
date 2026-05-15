@@ -106,3 +106,19 @@ def test_parse_metadata_priority_helper_query() -> None:
     assert query.filters[0].field == "priorityDate"
     assert query.filters[0].operator == "lt"
     assert query.filters[0].value == "2011-07-01"
+
+
+def test_parse_claim_query() -> None:
+    query = parse_dsl("claim:8")
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "claim"
+    assert query.filters[0].value == 8
+
+
+def test_parse_figure_query() -> None:
+    query = parse_dsl('figure:"FIG. 2"')
+
+    assert len(query.filters) == 1
+    assert query.filters[0].kind == "figure"
+    assert query.filters[0].value == "FIG. 2"

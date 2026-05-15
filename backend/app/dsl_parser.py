@@ -5,8 +5,10 @@ from dataclasses import dataclass
 
 from .models import (
     AndExpression,
+    ClaimFilter,
     ContainsFilter,
     CpcFilter,
+    FigureFilter,
     FilterExpression,
     MetadataFilter,
     NotExpression,
@@ -202,6 +204,18 @@ def _parse_clause(clause: str):
     paragraph_match = re.match(r'^paragraph:([0-9]+)$', clause, flags=re.IGNORECASE)
     if paragraph_match:
         return ParagraphFilter(kind="paragraph", value=paragraph_match.group(1))
+
+    claim_match = re.match(r'^claim:([0-9]+)$', clause, flags=re.IGNORECASE)
+    if claim_match:
+        return ClaimFilter(kind="claim", value=int(claim_match.group(1)))
+
+    figure_match = re.match(r'^figure:(?:"([^"]+)"|(.+))$', clause, flags=re.IGNORECASE)
+    if figure_match:
+        figure_ref = (figure_match.group(1) or figure_match.group(2) or "").strip()
+        if not figure_ref:
+            raise ValueError("figure filter requires a non-empty reference.")
+        return FigureFilter(kind="figure", value=figure_ref)
+
     metadata_match = re.match(r'^meta(?:data)?\.([A-Za-z][A-Za-z0-9_.-]*):(.*)$', clause, flags=re.IGNORECASE)
     if metadata_match:
         field = metadata_match.group(1).strip()

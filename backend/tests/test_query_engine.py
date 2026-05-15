@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.models import ContainsFilter, Document, DocumentMetadata, MetadataFilter, Passage, Query, Section, SectionFilter
+from app.models import ClaimFilter, ContainsFilter, Document, DocumentMetadata, FigureFilter, MetadataFilter, Passage, Query, Section, SectionFilter
 from app.query_engine import execute_query
 
 
@@ -321,6 +321,98 @@ def test_execute_query_contains_ignores_invalid_regex_when_literal_does_not_matc
     result = execute_query(fixture, query)
 
     assert result.totalMatches == 0
+
+
+def test_execute_query_claim_filter_matches_claim_number() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="CLAIMS",
+                title="CLAIMS",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="1. A system comprising a processor.",
+                        index=0,
+                        sectionType="CLAIMS",
+                        startOffset=0,
+                        endOffset=35,
+                        claimNo=1,
+                    ),
+                    Passage(
+                        id="p2",
+                        text="2. The system of claim 1, wherein the processor updates calibration parameters.",
+                        index=1,
+                        sectionType="CLAIMS",
+                        startOffset=36,
+                        endOffset=114,
+                        claimNo=2,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[ClaimFilter(kind="claim", value=2)])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p2"
+    assert result.matches[0].claimNo == 2
+    assert "Matched claim:2" in result.matches[0].reasons
+
+
+def test_execute_query_figure_filter_matches_normalized_figure_reference() -> None:
+    fixture = Document(
+        metadata=DocumentMetadata(
+            id="doc-1",
+            title="Sample",
+            sourceFile="sample.txt",
+            ingestedAt=datetime.now(timezone.utc).isoformat(),
+        ),
+        sections=[
+            Section(
+                type="DESCRIPTION",
+                title="DETAILED DESCRIPTION",
+                passages=[
+                    Passage(
+                        id="p1",
+                        text="FIG. 2 shows the provisioning workflow.",
+                        index=0,
+                        sectionType="DESCRIPTION",
+                        startOffset=0,
+                        endOffset=38,
+                        figureRefs=["FIG. 2"],
+                    ),
+                    Passage(
+                        id="p2",
+                        text="FIG. 3 shows the deployment flow.",
+                        index=1,
+                        sectionType="DESCRIPTION",
+                        startOffset=39,
+                        endOffset=74,
+                        figureRefs=["FIG. 3"],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    query = Query(filters=[FigureFilter(kind="figure", value="fig 2")])
+
+    result = execute_query(fixture, query)
+
+    assert result.totalMatches == 1
+    assert result.matches[0].passageId == "p1"
+    assert result.matches[0].figureRefs == ["FIG. 2"]
+    assert 'Matched figure:"fig 2"' in result.matches[0].reasons
 
 
 def test_execute_query_metadata_date_comparison() -> None:

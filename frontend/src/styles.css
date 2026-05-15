@@ -117,6 +117,83 @@ button:disabled {
   gap: 0.5rem;
 }
 
+.facetBlock {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.facetHeader {
+  align-items: baseline;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.facetHint {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.facetSearchInput {
+  background: white;
+  border: 1px solid #ddd1ba;
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.45rem 0.65rem;
+  width: 100%;
+}
+
+.facetChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.facetChipsScrollable {
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.facetChip {
+  background: #f5efe0;
+  border: 1px solid #d8c7a7;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+}
+
+.facetChipActive {
+  background: linear-gradient(120deg, var(--accent), #137f8c);
+  color: white;
+}
+
+.facetDisclosure {
+  border: 1px solid #ddd1ba;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fffdf7;
+}
+
+.facetDisclosureSummary {
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.facetDisclosureBody {
+  margin-top: 0.65rem;
+}
+
 .documentOptions {
   display: grid;
   gap: 0.55rem;
@@ -138,6 +215,11 @@ button:disabled {
 .documentOption span {
   display: grid;
   gap: 0.2rem;
+}
+
+.documentOption small {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .documentOption code,

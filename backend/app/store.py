@@ -47,7 +47,7 @@ class DocumentStore:
         self.upsert(document)
         return document
 
-    def list(self) -> list[dict[str, str]]:
+    def list(self) -> list[dict[str, str | list[str] | None]]:
         documents = sorted(self._metadata_by_id.values(), key=lambda metadata: metadata.id)
         return [
             {
@@ -55,6 +55,13 @@ class DocumentStore:
                 "title": metadata.title,
                 "sourceFile": metadata.sourceFile,
                 "ingestedAt": metadata.ingestedAt,
+                "assigneeName": metadata.assignee.get("name") if metadata.assignee else None,
+                "inventorNames": [
+                    inventor.get("nameAndCity", "")
+                    for inventor in (metadata.inventors or [])
+                    if inventor.get("nameAndCity")
+                ]
+                or None,
             }
             for metadata in documents
         ]

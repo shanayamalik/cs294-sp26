@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChartRow, clearSearchNavigationTarget, loadSearchNavigationTarget, upsertChartRow } from "./claimChartStorage";
 
 type DocumentSummary = {
@@ -6,6 +6,8 @@ type DocumentSummary = {
   title: string;
   sourceFile: string;
   ingestedAt: string;
+  assigneeName: string | null;
+  inventorNames: string[] | null;
 };
 
 type QueryResponse = {
@@ -29,6 +31,7 @@ type QueryResponse = {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:4000";
 const PASSAGE_PREVIEW_LIMIT = 420;
+const INLINE_FACET_LIMIT = 5;
 
 type HighlightTerm = {
   value: string;
@@ -43,6 +46,10 @@ type HighlightSpan = {
 export default function App() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [selectedAssigneeFacets, setSelectedAssigneeFacets] = useState<string[]>([]);
+  const [selectedInventorFacets, setSelectedInventorFacets] = useState<string[]>([]);
+  const [assigneeFacetQuery, setAssigneeFacetQuery] = useState("");
+  const [inventorFacetQuery, setInventorFacetQuery] = useState("");
   const [queryText, setQueryText] = useState('section:SPECIFICATION AND contains:"signal processing"');
   const [liveQueryEnabled, setLiveQueryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -68,7 +75,59 @@ export default function App() {
     [documentsById, selectedDocumentIds]
   );
 
+  const assigneeFacets = useMemo(() => uniqueSortedValues(documents.map((doc) => doc.assigneeName)), [documents]);
+  const inventorFacets = useMemo(
+    () => uniqueSortedValues(documents.flatMap((doc) => doc.inventorNames ?? [])),
+    [documents]
+  );
+
+  const filteredAssigneeFacets = useMemo(
+    () => filterFacetValues(assigneeFacets, assigneeFacetQuery),
+    [assigneeFacets, assigneeFacetQuery]
+  );
+
+  const filteredInventorFacets = useMemo(
+    () => filterFacetValues(inventorFacets, inventorFacetQuery),
+    [inventorFacets, inventorFacetQuery]
+  );
+
+  const visibleAssigneeFacets = useMemo(() => {
+    if (assigneeFacets.length <= INLINE_FACET_LIMIT || assigneeFacetQuery.trim()) {
+      return filteredAssigneeFacets;
+    }
+
+    return assigneeFacets.slice(0, INLINE_FACET_LIMIT);
+  }, [assigneeFacetQuery, assigneeFacets, filteredAssigneeFacets]);
+
+  const visibleInventorFacets = useMemo(() => {
+    if (inventorFacets.length <= INLINE_FACET_LIMIT || inventorFacetQuery.trim()) {
+      return filteredInventorFacets;
+    }
+
+    return inventorFacets.slice(0, INLINE_FACET_LIMIT);
+  }, [filteredInventorFacets, inventorFacetQuery, inventorFacets]);
+
+  const visibleDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      const matchesAssignee =
+        selectedAssigneeFacets.length === 0 || (doc.assigneeName != null && selectedAssigneeFacets.includes(doc.assigneeName));
+      const matchesInventor =
+        selectedInventorFacets.length === 0 || (doc.inventorNames ?? []).some((name) => selectedInventorFacets.includes(name));
+      return matchesAssignee && matchesInventor;
+    });
+  }, [documents, selectedAssigneeFacets, selectedInventorFacets]);
+
+  const visibleDocumentIds = useMemo(() => new Set(visibleDocuments.map((doc) => doc.id)), [visibleDocuments]);
+
   const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+
+  useEffect(() => {
+    if (selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0) {
+      return;
+    }
+
+    setSelectedDocumentIds((current) => current.filter((id) => visibleDocumentIds.has(id)));
+  }, [selectedAssigneeFacets, selectedInventorFacets, visibleDocumentIds]);
 
   const runQuery = useCallback(async (docIds: string[], text: string) => {
     if (docIds.length === 0 || !text.trim()) return;
@@ -218,12 +277,23 @@ export default function App() {
 
   function selectAllDocuments() {
     setLiveQueryEnabled(true);
-    setSelectedDocumentIds(documents.map((doc) => doc.id));
+    setSelectedDocumentIds(visibleDocuments.map((doc) => doc.id));
   }
 
   function clearDocuments() {
     setLiveQueryEnabled(true);
     setSelectedDocumentIds([]);
+  }
+
+  function toggleFacet(value: string, setFacetState: Dispatch<SetStateAction<string[]>>) {
+    setFacetState((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
+  }
+
+  function clearMetadataFacets() {
+    setSelectedAssigneeFacets([]);
+    setSelectedInventorFacets([]);
+    setAssigneeFacetQuery("");
+    setInventorFacetQuery("");
   }
 
   async function copyCitation(match: QueryResponse["result"]["matches"][number], documentTitle: string) {
@@ -292,16 +362,92 @@ export default function App() {
         <form onSubmit={onSubmit} className="queryForm">
           <fieldset className="documentPicker">
             <legend>Documents</legend>
+            {assigneeFacets.length > 0 ? (
+              <div className="facetBlock">
+                <div className="facetHeader">
+                  <span>Assignee facets</span>
+                  <span className="facetHint">Type to find a specific assignee</span>
+                </div>
+                <input
+                  className="facetSearchInput"
+                  value={assigneeFacetQuery}
+                  onChange={(event) => setAssigneeFacetQuery(event.target.value)}
+                  placeholder="Filter assignees"
+                />
+                <div className="facetChips">
+                  {visibleAssigneeFacets.map((assigneeName) => {
+                    const active = selectedAssigneeFacets.includes(assigneeName);
+                    return (
+                      <button
+                        key={assigneeName}
+                        type="button"
+                        className={`facetChip${active ? " facetChipActive" : ""}`}
+                        onClick={() => toggleFacet(assigneeName, setSelectedAssigneeFacets)}
+                      >
+                        {assigneeName}
+                      </button>
+                    );
+                  })}
+                </div>
+                {assigneeFacets.length > INLINE_FACET_LIMIT && !assigneeFacetQuery.trim() ? (
+                  <p className="facetHint">Showing the first {INLINE_FACET_LIMIT} assignees. Type to narrow the full list.</p>
+                ) : null}
+                {assigneeFacetQuery.trim() && visibleAssigneeFacets.length === 0 ? (
+                  <p className="facetHint">No assignees match that filter.</p>
+                ) : null}
+              </div>
+            ) : null}
+            {inventorFacets.length > 0 ? (
+              <div className="facetBlock">
+                <div className="facetHeader">
+                  <span>Inventor facets</span>
+                  <span className="facetHint">Type to find a specific inventor</span>
+                </div>
+                <input
+                  className="facetSearchInput"
+                  value={inventorFacetQuery}
+                  onChange={(event) => setInventorFacetQuery(event.target.value)}
+                  placeholder="Filter inventors"
+                />
+                <div className="facetChips facetChipsScrollable">
+                  {visibleInventorFacets.map((inventorName) => {
+                    const active = selectedInventorFacets.includes(inventorName);
+                    return (
+                      <button
+                        key={inventorName}
+                        type="button"
+                        className={`facetChip${active ? " facetChipActive" : ""}`}
+                        onClick={() => toggleFacet(inventorName, setSelectedInventorFacets)}
+                      >
+                        {inventorName}
+                      </button>
+                    );
+                  })}
+                </div>
+                {inventorFacets.length > INLINE_FACET_LIMIT && !inventorFacetQuery.trim() ? (
+                  <p className="facetHint">Showing the first {INLINE_FACET_LIMIT} inventors. Type to narrow the full list.</p>
+                ) : null}
+                {inventorFacetQuery.trim() && visibleInventorFacets.length === 0 ? <p className="facetHint">No inventors match that filter.</p> : null}
+              </div>
+            ) : null}
             <div className="documentPickerActions">
               <button type="button" className="secondaryButton" onClick={selectAllDocuments}>
-                Select all
+                Select visible
               </button>
               <button type="button" className="secondaryButton" onClick={clearDocuments}>
                 Clear
               </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={clearMetadataFacets}
+                disabled={selectedAssigneeFacets.length === 0 && selectedInventorFacets.length === 0}
+              >
+                Clear facets
+              </button>
             </div>
             <div className="documentOptions">
-              {documents.map((doc) => (
+              {visibleDocuments.map((doc) => (
                 <label key={doc.id} className="documentOption">
                   <input
                     type="checkbox"
@@ -310,10 +456,13 @@ export default function App() {
                   />
                   <span>
                     <strong>{doc.title}</strong>
+                    {doc.assigneeName ? <small>{doc.assigneeName}</small> : null}
+                    {doc.inventorNames?.length ? <small>{doc.inventorNames.slice(0, 2).join("; ")}</small> : null}
                     <code>{doc.id}</code>
                   </span>
                 </label>
               ))}
+              {visibleDocuments.length === 0 ? <p className="subtitle">No documents match the current metadata facets.</p> : null}
             </div>
           </fieldset>
 
@@ -337,7 +486,7 @@ export default function App() {
 
         {selectedDocuments.length > 0 ? (
           <p className="docMeta">
-            Searching {selectedDocuments.length} of {documents.length} document(s):{" "}
+            Searching {selectedDocuments.length} of {visibleDocuments.length} visible / {documents.length} total document(s):{" "}
             {selectedDocuments.map((doc) => doc.id).join(", ")}
           </p>
         ) : null}
@@ -453,6 +602,22 @@ function createChartRow(
 
 function resultElementId(resultKey: string) {
   return `result-${resultKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function uniqueSortedValues(values: Array<string | null | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value && value.trim().length > 0)))].sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
+function filterFacetValues(values: string[], query: string) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return values;
+  }
+
+  const normalizedQuery = trimmedQuery.toLocaleLowerCase();
+  return values.filter((value) => value.toLocaleLowerCase().includes(normalizedQuery));
 }
 
 function extractHighlightTerms(queryText: string) {

@@ -19,6 +19,8 @@
   - `section:TYPE`, including finer-grained section filters such as `BACKGROUND`, `SUMMARY`, and `DESCRIPTION` while preserving `SPECIFICATION` as a broader umbrella filter
   - `contains:"phrase"` for plain text and `contains.regex:"pattern"` for regex patterns
   - `synonym_of:"term"` for deterministic built-in synonym expansion into ordinary passage text matching
+  - `claim:NN` for direct claim-number filtering
+  - `figure:"FIG. N"` for filtering passages annotated with figure references
   - `meta.KEY:"value"`
   - `meta.KEY:<value`, `<=value`, `>value`, `>=value` for comparable metadata fields such as filing dates
   - `meta.KEY:~value`, `^value` for substring and prefix matching on string metadata
@@ -36,9 +38,11 @@
   - matched passage text
   - section metadata
   - optional anchors (`paragraphId`, `claimNo`) when available
+  - optional `figureRefs` when available
   - neighboring context
   - match reasons
 - Frontend document picker supports searching across multiple documents
+- Frontend document picker now exposes assignee and inventor facets so metadata can narrow the active document set before querying
 - Frontend result cards show which document each hit came from
 - Frontend result cards show paragraph / claim anchor badges when available
 - Frontend result cards support `Copy citation` for lightweight claim-mapping handoff
@@ -57,9 +61,9 @@
 - More Query filters:
   - ~~`paragraph:NNNN` (optional pinpoint filter, not primary retrieval)~~ **done** 
   - ~~add finer-grained section filters so users can distinguish `BACKGROUND`, `SUMMARY`, and detailed-description style sections instead of only the broader `SPECIFICATION` bucket~~ **done**
+  - ~~expose already-extracted structural fields such as `claimNo` and `figureRefs` as queryable filters~~ **done**
   - remaining action items:
     - consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect
-    - consider exposing already-extracted structural fields such as `claimNo` and `figureRefs` as queryable filters if we want more patent-specific retrieval beyond `paragraph:` and `cpc:`
 - More *Unique* Query filters specific to examiner workflows that we can extract from need finding
   - recommended focus:
     - ~~add reusable synonym support rather than relying only on manual `OR` clauses, since Need 1 is about managing synonym sets rather than only expressing them~~ **done**
@@ -70,8 +74,8 @@
 - ~~Filing-date comparison / admissibility filters (for example `meta.filingDate:<2018-03-15`)~~ **done**
 - Better metadata operators for inventor / assignee / date exploration
   - ~~substring / prefix matching, direct inventor / assignee name aliases, date convenience aliases, and derived priority / effective / admissibility date helpers~~ **done**
+  - ~~add richer inventor / assignee facets beyond direct name lookup~~ **done**
   - remaining action items:
-    - add richer inventor / assignee facets beyond direct name lookup
     - decide whether any additional metadata fields should become first-class aliases instead of nested-only access
     - document the current legal limits of the helper-based `priorityDate` / `effectiveDate` / `admissibilityDate` model before extending it
 - Claim-mapping support built on top of retrieved passages
@@ -108,10 +112,10 @@
 ### Recommended Next Implementation Order
 
 - Highest priority / strongest writeup alignment:
-  - expose more patent-specific structure in the DSL, especially `claimNo` and possibly `figureRefs`, if we want a more distinctive examiner-focused query story
+  - decide which additional metadata fields deserve first-class aliases instead of nested-only access
 - Medium priority / strong workflow payoff:
-  - add richer inventor / assignee facets and decide which metadata fields deserve first-class aliases instead of only nested access
   - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
+  - consider a heading-text filter such as `heading:` / `sectionTitle:` as an escape hatch when canonical section typing is too coarse or parser normalization is imperfect
 - Lower priority / important for polish or validation:
   - document the legal limits of the helper-based date fields before extending them further, so the tool stays honest about what is heuristic versus legally definitive
   - benchmark lazy-load / preload behavior on a larger corpus and define concrete acceptance targets for startup latency, first-query latency, and memory use

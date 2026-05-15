@@ -50,13 +50,51 @@ def test_query_handler_supports_synonym_of(tmp_path: Path, monkeypatch) -> None:
     assert any('hypervisor' in reason for reason in payload["result"]["matches"][0]["reasons"])
 
 
-def _document(document_id: str, title: str) -> Document:
+def test_documents_endpoint_includes_metadata_facet_summaries(tmp_path: Path, monkeypatch) -> None:
+    parsed_dir = tmp_path / "parsed"
+    parsed_dir.mkdir()
+    document = _document(
+        "alpha",
+        "Alpha Patent",
+        assignee={"name": "Example Corp", "city": "San Jose"},
+        inventors=[{"nameAndCity": "Anderson; Evan K. Seattle", "country": "US"}],
+    )
+    (parsed_dir / "alpha.json").write_text(document.model_dump_json(exclude_none=True), encoding="utf-8")
+
+    store = DocumentStore()
+    monkeypatch.setattr(main_module, "store", store)
+    monkeypatch.setattr(main_module, "PARSED_DATA_DIR", parsed_dir)
+
+    main_module.startup()
+    payload = main_module.documents()
+
+    assert payload["documents"] == [
+        {
+            "id": "alpha",
+            "title": "Alpha Patent",
+            "sourceFile": "alpha.txt",
+            "ingestedAt": "2026-05-13T00:00:00Z",
+            "assigneeName": "Example Corp",
+            "inventorNames": ["Anderson; Evan K. Seattle"],
+        }
+    ]
+
+
+def _document(
+    document_id: str,
+    title: str,
+    *,
+    assignee: dict[str, str] | None = None,
+    inventors: list[dict[str, str]] | None = None,
+) -> Document:
     return Document(
         metadata=DocumentMetadata(
             id=document_id,
             title=title,
             sourceFile=f"{document_id}.txt",
             ingestedAt="2026-05-13T00:00:00Z",
+            assignee=assignee,
+            inventors=inventors,
         ),
         sections=[
             Section(

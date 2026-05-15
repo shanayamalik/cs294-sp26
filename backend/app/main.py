@@ -41,7 +41,7 @@ def health() -> dict[str, str]:
 
 
 @app.get("/documents")
-def documents() -> dict[str, list[dict[str, str]]]:
+def documents() -> dict[str, list[dict[str, Any]]]:
     return {"documents": store.list()}
 
 

@@ -78,10 +78,10 @@
   - ~~copy citation button~~ **done**
   - ~~separate claim-chart demo page~~ **done**
   - ~~stronger chart structure, better claim-element editing, grouped multi-evidence claim elements, TSV export, and examiner-style DOCX export~~ **done**
+  - ~~add faster navigation between search hits and their grouped chart entries~~ **done**
+  - ~~support row or group reordering inside the claim-chart workspace~~ **done**
+  - ~~support bulk actions such as removing or clearing multiple evidence rows at once~~ **done**
   - remaining action items:
-    - add faster navigation between search hits and their grouped chart entries
-    - support row or group reordering inside the claim-chart workspace
-    - support bulk actions such as removing or clearing multiple evidence rows at once
     - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
     - refine DOCX output layout if we want a closer match to a specific examiner-style template
     - decide whether export should include optional header fields such as patent number, claim set, analyst, or generation metadata
@@ -108,13 +108,11 @@
 ### Recommended Next Implementation Order
 
 - Highest priority / strongest writeup alignment:
-  - add jump/navigation links between search results and grouped claim-chart entries so the current search-to-chart handoff becomes a true workflow rather than a one-way transfer
-- Medium priority / strong workflow payoff:
-  - add row or group reordering in the claim-chart workspace so grouped evidence can be organized into a reviewer-friendly order
-  - add bulk evidence actions such as remove-selected / clear-selected so chart cleanup does not stay fully manual as saved evidence grows
   - expose more patent-specific structure in the DSL, especially `claimNo` and possibly `figureRefs`, if we want a more distinctive examiner-focused query story
-- Lower priority / important for polish or validation:
+- Medium priority / strong workflow payoff:
   - add richer inventor / assignee facets and decide which metadata fields deserve first-class aliases instead of only nested access
+  - decide whether chart groups need richer per-group notes or status fields beyond claim text, element label, and analysis
+- Lower priority / important for polish or validation:
   - document the legal limits of the helper-based date fields before extending them further, so the tool stays honest about what is heuristic versus legally definitive
   - benchmark lazy-load / preload behavior on a larger corpus and define concrete acceptance targets for startup latency, first-query latency, and memory use
 - Likely defer unless time remains:

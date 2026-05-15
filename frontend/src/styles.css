@@ -287,11 +287,32 @@ button:disabled {
   gap: 0.8rem;
 }
 
+.chartBulkToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.chartSelectionCount {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-right: auto;
+}
+
 .chartEvidenceCard {
   border: 1px solid #ddd1ba;
   border-radius: 8px;
   background: #fffcf6;
   padding: 0.8rem;
+}
+
+.chartEvidenceCardSelected,
+.chartGroupEvidenceCardSelected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(15, 123, 108, 0.12);
 }
 
 .chartEvidenceActions {
@@ -308,6 +329,19 @@ button:disabled {
   color: var(--muted);
 }
 
+.chartSelectToggle {
+  align-items: center;
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.45rem;
+}
+
+.chartSelectToggle input {
+  margin: 0;
+}
+
 .chartActionButton,
 .chartLinkButton {
   border: 1px solid #d8c7a7;
@@ -319,9 +353,19 @@ button:disabled {
   font-weight: 600;
 }
 
+.chartDangerButton {
+  background: #f7d8d1;
+  border-color: #d89b8d;
+  color: #7d2515;
+}
+
 .chartActionButton:hover,
 .chartLinkButton:hover {
   background: #f6ead0;
+}
+
+.chartDangerButton:hover {
+  background: #efc4b8;
 }
 
 .chartWorkspaceHeader {
@@ -360,6 +404,12 @@ button:disabled {
   gap: 1rem;
 }
 
+.chartGroupHeaderActions {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+
 .chartGroupFields {
   display: grid;
   grid-template-columns: 140px minmax(180px, 260px);
@@ -372,6 +422,13 @@ button:disabled {
   font-size: 0.9rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.chartReorderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
 }
 
 .chartFieldLabel {
@@ -450,6 +507,10 @@ button:disabled {
   gap: 0.45rem;
 }
 
+.chartEvidenceSelectToggle {
+  justify-self: start;
+}
+
 .chartEvidenceSummary::-webkit-details-marker {
   display: none;
 }
@@ -501,6 +562,17 @@ button:disabled {
 
   .chartGroupCount {
     white-space: normal;
+  }
+
+  .chartGroupHeaderActions,
+  .chartReorderActions {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .chartSelectionCount {
+    margin-right: 0;
+    width: 100%;
   }
 
   .chartHeaderActions {

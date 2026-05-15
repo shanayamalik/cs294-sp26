@@ -12,13 +12,20 @@ type ClaimElementGroup = {
 
 export default function ClaimChartDemo() {
   const [rows, setRows] = useState<ChartRow[]>(() => loadChartRows());
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
 
   const groupedRows = useMemo(() => groupChartRows(rows), [rows]);
+  const selectedRowIdSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const selectedRowCount = selectedRowIds.length;
 
   useEffect(() => {
     saveChartRows(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    setSelectedRowIds((current) => current.filter((id) => rows.some((row) => row.id === id)));
   }, [rows]);
 
   useEffect(() => {
@@ -36,6 +43,52 @@ export default function ClaimChartDemo() {
     setRows((current) => current.filter((row) => row.id !== id));
   }
 
+  function toggleRowSelection(rowId: string) {
+    setSelectedRowIds((current) =>
+      current.includes(rowId) ? current.filter((id) => id !== rowId) : [...current, rowId]
+    );
+  }
+
+  function toggleGroupSelection(groupId: string) {
+    const group = groupedRows.find((candidate) => candidate.id === groupId);
+    if (!group) {
+      return;
+    }
+
+    const groupRowIds = group.rows.map((row) => row.id);
+    const allSelected = groupRowIds.every((rowId) => selectedRowIdSet.has(rowId));
+
+    setSelectedRowIds((current) => {
+      if (allSelected) {
+        return current.filter((id) => !groupRowIds.includes(id));
+      }
+
+      const next = new Set(current);
+      for (const rowId of groupRowIds) {
+        next.add(rowId);
+      }
+      return [...next];
+    });
+  }
+
+  function selectAllRows() {
+    setSelectedRowIds(rows.map((row) => row.id));
+  }
+
+  function clearSelection() {
+    setSelectedRowIds([]);
+  }
+
+  function removeSelectedRows() {
+    if (selectedRowIds.length === 0) {
+      return;
+    }
+
+    const selectedIds = new Set(selectedRowIds);
+    setRows((current) => current.filter((row) => !selectedIds.has(row.id)));
+    setSelectedRowIds([]);
+  }
+
   function updateRow(id: string, field: "notes", value: string) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   }
@@ -44,6 +97,14 @@ export default function ClaimChartDemo() {
     setRows((current) =>
       current.map((row) => (groupIdForRow(row) === groupId ? { ...row, [field]: value } : row))
     );
+  }
+
+  function moveGroup(groupId: string, direction: "up" | "down") {
+    setRows((current) => moveGroupRows(current, groupId, direction));
+  }
+
+  function moveRowWithinGroup(groupId: string, rowId: string, direction: "up" | "down") {
+    setRows((current) => moveGroupEvidenceRow(current, groupId, rowId, direction));
   }
 
   async function copyChartRows() {
@@ -117,10 +178,28 @@ export default function ClaimChartDemo() {
         <div className="panel chartDemoColumn">
           <h2>Saved Evidence</h2>
           <p className="subtitle">Results added from the main search page appear here and stay editable in this separate workspace.</p>
+          {rows.length > 0 ? (
+            <div className="chartBulkToolbar">
+              <span className="chartSelectionCount">{selectedRowCount} selected</span>
+              <button type="button" className="chartLinkButton" onClick={selectAllRows} disabled={rows.length === 0 || selectedRowCount === rows.length}>
+                Select all
+              </button>
+              <button type="button" className="chartLinkButton" onClick={clearSelection} disabled={selectedRowCount === 0}>
+                Clear selection
+              </button>
+              <button type="button" className="chartActionButton chartDangerButton" onClick={removeSelectedRows} disabled={selectedRowCount === 0}>
+                Remove selected
+              </button>
+            </div>
+          ) : null}
           <div className="chartEvidenceList">
-            {rows.map((item) => (
-              <article key={item.id} className="chartEvidenceCard">
+            {rows.map((item, index) => (
+              <article key={item.id} className={`chartEvidenceCard${selectedRowIdSet.has(item.id) ? " chartEvidenceCardSelected" : ""}`}>
                 <div className="chartEvidenceMeta">
+                  <label className="chartSelectToggle">
+                    <input type="checkbox" checked={selectedRowIdSet.has(item.id)} onChange={() => toggleRowSelection(item.id)} />
+                    <span>Select evidence</span>
+                  </label>
                   <strong>{item.reference}</strong>
                   <span>{item.location}</span>
                   <span>{item.citation}</span>
@@ -128,6 +207,12 @@ export default function ClaimChartDemo() {
                 <p><b>Excerpt:</b> {item.excerpt}</p>
                 <p><b>Why it matters:</b> {item.reason}</p>
                 <div className="chartEvidenceActions">
+                  <button type="button" className="chartLinkButton" onClick={() => setRows((current) => moveRow(current, index, -1))} disabled={index === 0}>
+                    Move up
+                  </button>
+                  <button type="button" className="chartLinkButton" onClick={() => setRows((current) => moveRow(current, index, 1))} disabled={index === rows.length - 1}>
+                    Move down
+                  </button>
                   <button type="button" className="chartActionButton" onClick={() => openRowInSearch(item)} disabled={!item.sourceQueryText}>
                     View in search
                   </button>
@@ -158,7 +243,7 @@ export default function ClaimChartDemo() {
           </div>
 
           <div className="chartGroupList">
-            {groupedRows.map((group) => (
+            {groupedRows.map((group, groupIndex) => (
               <section key={group.id} className="chartGroupCard">
                 <div className="chartGroupHeader">
                   <div className="chartGroupFields">
@@ -181,7 +266,29 @@ export default function ClaimChartDemo() {
                       />
                     </label>
                   </div>
-                  <div className="chartGroupCount">{group.rows.length} evidence {group.rows.length === 1 ? "row" : "rows"}</div>
+                  <div className="chartGroupHeaderActions">
+                    <div className="chartGroupCount">{group.rows.length} evidence {group.rows.length === 1 ? "row" : "rows"}</div>
+                    <div className="chartReorderActions">
+                      <button
+                        type="button"
+                        className="chartLinkButton"
+                        onClick={() => toggleGroupSelection(group.id)}
+                      >
+                        {group.rows.every((row) => selectedRowIdSet.has(row.id)) ? "Clear group" : "Select group"}
+                      </button>
+                      <button type="button" className="chartLinkButton" onClick={() => moveGroup(group.id, "up")} disabled={groupIndex === 0}>
+                        Move group up
+                      </button>
+                      <button
+                        type="button"
+                        className="chartLinkButton"
+                        onClick={() => moveGroup(group.id, "down")}
+                        disabled={groupIndex === groupedRows.length - 1}
+                      >
+                        Move group down
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <label className="chartFieldLabel">
@@ -196,10 +303,21 @@ export default function ClaimChartDemo() {
                 </label>
 
                 <div className="chartGroupEvidenceList">
-                  {group.rows.map((row) => (
-                    <article key={row.id} className="chartGroupEvidenceCard">
+                  {group.rows.map((row, rowIndex) => (
+                    <article key={row.id} className={`chartGroupEvidenceCard${selectedRowIdSet.has(row.id) ? " chartGroupEvidenceCardSelected" : ""}`}>
                       <details className="chartEvidenceDisclosure">
                         <summary className="chartEvidenceSummary">
+                          <label
+                            className="chartSelectToggle chartEvidenceSelectToggle"
+                            onClick={(event) => event.preventDefault()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRowIdSet.has(row.id)}
+                              onChange={() => toggleRowSelection(row.id)}
+                            />
+                            <span>Select evidence</span>
+                          </label>
                           <div className="chartGroupEvidenceMeta">
                             <strong>{row.citation}</strong>
                             <span>{row.reference}</span>
@@ -220,6 +338,22 @@ export default function ClaimChartDemo() {
                             />
                           </label>
                           <div className="chartEvidenceActions">
+                            <button
+                              type="button"
+                              className="chartLinkButton"
+                              onClick={() => moveRowWithinGroup(group.id, row.id, "up")}
+                              disabled={rowIndex === 0}
+                            >
+                              Move up
+                            </button>
+                            <button
+                              type="button"
+                              className="chartLinkButton"
+                              onClick={() => moveRowWithinGroup(group.id, row.id, "down")}
+                              disabled={rowIndex === group.rows.length - 1}
+                            >
+                              Move down
+                            </button>
                             <button type="button" className="chartLinkButton" onClick={() => openRowInSearch(row)} disabled={!row.sourceQueryText}>
                               View in search
                             </button>
@@ -289,4 +423,57 @@ function groupIdForRow(row: ChartRow) {
   }
 
   return `${claim}::${elementLabel}`;
+}
+
+function moveRow(rows: ChartRow[], index: number, delta: -1 | 1) {
+  const targetIndex = index + delta;
+  if (index < 0 || index >= rows.length || targetIndex < 0 || targetIndex >= rows.length) {
+    return rows;
+  }
+
+  const nextRows = [...rows];
+  const [row] = nextRows.splice(index, 1);
+  nextRows.splice(targetIndex, 0, row);
+  return nextRows;
+}
+
+function moveGroupRows(rows: ChartRow[], groupId: string, direction: "up" | "down") {
+  const groups = groupChartRows(rows);
+  const groupIndex = groups.findIndex((group) => group.id === groupId);
+  if (groupIndex === -1) {
+    return rows;
+  }
+
+  const targetIndex = direction === "up" ? groupIndex - 1 : groupIndex + 1;
+  if (targetIndex < 0 || targetIndex >= groups.length) {
+    return rows;
+  }
+
+  const orderedGroups = [...groups];
+  const [group] = orderedGroups.splice(groupIndex, 1);
+  orderedGroups.splice(targetIndex, 0, group);
+
+  return orderedGroups.flatMap((orderedGroup) => orderedGroup.rows);
+}
+
+function moveGroupEvidenceRow(rows: ChartRow[], groupId: string, rowId: string, direction: "up" | "down") {
+  const groups = groupChartRows(rows);
+  const groupIndex = groups.findIndex((group) => group.id === groupId);
+  if (groupIndex === -1) {
+    return rows;
+  }
+
+  const group = groups[groupIndex];
+  const rowIndex = group.rows.findIndex((row) => row.id === rowId);
+  if (rowIndex === -1) {
+    return rows;
+  }
+
+  const targetIndex = direction === "up" ? rowIndex - 1 : rowIndex + 1;
+  if (targetIndex < 0 || targetIndex >= group.rows.length) {
+    return rows;
+  }
+
+  const reorderedGroupRows = moveRow(group.rows, rowIndex, direction === "up" ? -1 : 1);
+  return groups.flatMap((candidateGroup) => (candidateGroup.id === groupId ? reorderedGroupRows : candidateGroup.rows));
 }

@@ -10,7 +10,7 @@ from .models import ContainsFilter
 
 DATAMUSE_WORDS_URL = "https://api.datamuse.com/words"
 DATAMUSE_TIMEOUT_SECONDS = 2.5
-DATAMUSE_MAX_RESULTS = 10
+DATAMUSE_MAX_RESULTS = 5
 DATAMUSE_TOPICS = "computer science software electrical engineering"
 TERMSETS: dict[str, list[str]] = {}
 

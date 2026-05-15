@@ -49,6 +49,8 @@ type HighlightSpan = {
   end: number;
 };
 
+type SynonymExpansion = NonNullable<QueryResponse["synonymExpansions"]>[number];
+
 type AppProps = {
   demoMode?: boolean;
 };
@@ -162,7 +164,10 @@ export default function App({ demoMode = false }: AppProps) {
     return pills;
   }, [demoMode, selectedAssigneeFacets.length, selectedDocumentIds.length, selectedInventorFacets.length]);
 
-  const highlightTerms = useMemo(() => extractHighlightTerms(submittedQueryText), [submittedQueryText]);
+  const highlightTerms = useMemo(
+    () => mergeHighlightTerms(extractHighlightTerms(submittedQueryText), extractSynonymHighlightTerms(queryResult?.synonymExpansions ?? [])),
+    [queryResult?.synonymExpansions, submittedQueryText]
+  );
   const hasSubmittedQuery = submittedQueryText.trim().length > 0;
 
   useEffect(() => {
@@ -858,6 +863,27 @@ function extractHighlightTerms(queryText: string) {
 
   const uniqueTerms = new Map<string, HighlightTerm>();
   for (const term of terms.filter((term) => term.value)) {
+    const key = term.value.toLowerCase();
+    const existing = uniqueTerms.get(key);
+    uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);
+  }
+
+  return [...uniqueTerms.values()].sort((left, right) => right.value.length - left.value.length);
+}
+
+function extractSynonymHighlightTerms(expansions: SynonymExpansion[]) {
+  return expansions.flatMap((expansion) =>
+    expansion.terms.map((term) => ({
+      value: term,
+      allowRegex: false,
+    }))
+  );
+}
+
+function mergeHighlightTerms(...termGroups: HighlightTerm[][]) {
+  const uniqueTerms = new Map<string, HighlightTerm>();
+
+  for (const term of termGroups.flat().filter((term) => term.value)) {
     const key = term.value.toLowerCase();
     const existing = uniqueTerms.get(key);
     uniqueTerms.set(key, existing ? { ...existing, allowRegex: existing.allowRegex || term.allowRegex } : term);

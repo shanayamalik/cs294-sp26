@@ -1,8 +1,8 @@
-# Programmatic Patent Analysis Environment
+# Programmatic Patent Query DSL
 
-This repository contains a prototype environment for structured prior-art search and lightweight claim-chart drafting. The project treats patent documents as structured, queryable data rather than opaque full-text blobs, allowing searches over section type, passage content, metadata, and citation-relevant anchors.
+This repository centers on a domain-specific language for structured prior-art search over patent documents. The DSL treats patents as structured, queryable data rather than opaque full-text blobs, allowing users to express searches over section type, passage content, metadata, and citation-relevant anchors.
 
-The system combines a FastAPI backend, a small patent-query DSL, and a React frontend. It supports corpus scoping, passage-level retrieval, provenance-aware result inspection, and a connected claim-chart workflow for carrying evidence forward into downstream analysis.
+The surrounding system is a prototype implementation of that language: a FastAPI backend, a normalized patent document model, and a React frontend for running queries, inspecting provenance-rich results, and carrying selected evidence into a lightweight claim-chart workflow.
 
 ## Repository Layout
 
